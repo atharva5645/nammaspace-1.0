@@ -1,0 +1,381 @@
+/**
+ * Tests for readFileInfo (header-only structural metadata), columnNamesFromMeta,
+ * and the `info` process action.
+ *
+ *  - columnNamesFromMeta reproduces materializeToDataTable's canonical column
+ *    order from `meta` alone (per SH-band count, extras, and partial layer sets).
+ *  - readFileInfo reports format/counts/layers/extra-columns/shBands without
+ *    decoding gaussian data; a truncated file is rejected by the size guard.
+ *  - the `info` action passes the source through unchanged (meta-only).
+ */
+
+import assert from 'node:assert';
+import { randomBytes } from 'node:crypto';
+import { readFile as fsReadFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
+import { gunzipSync, gzipSync } from 'node:zlib';
+
+import { createTestDataTable, encodePlyBinary } from './helpers/test-utils.mjs';
+import {
+    Column, DataTable, MemoryFileSystem, MemoryReadFileSystem, WebPCodec,
+    logger, readFile, readFileInfo, readPly, writeSource
+} from '../src/lib/index.js';
+import { columnNamesFromMeta, dataTableToChunkSource } from '../src/lib/compat/data-table.js';
+import { processSource } from '../src/lib/process-source.js';
+import { createChunkDataPool } from '../src/lib/chunk/index.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const fixturesDir = join(__dirname, 'fixtures', 'splat');
+WebPCodec.wasmUrl = join(__dirname, '..', 'lib', 'webp.wasm');
+
+// Canonical non-SH columns in the order columnNamesFromMeta emits them.
+const STANDARD = [
+    'x', 'y', 'z',
+    'rot_0', 'rot_1', 'rot_2', 'rot_3', 'scale_0', 'scale_1', 'scale_2', 'opacity',
+    'f_dc_0', 'f_dc_1', 'f_dc_2'
+];
+
+const memFs = (name, bytes) => {
+    const fs = new MemoryReadFileSystem();
+    fs.set(name, bytes);
+    return fs;
+};
+
+// Write an antialiased-tagged PLY as `outputFormat` and return every output file
+// in a read file system, so the result can be peeked and fully read.
+const writeAntialiased = async (filename, outputFormat) => {
+    const pool = createChunkDataPool();
+    const plyFs = memFs('in.ply', encodePlyBinary(createTestDataTable(16), ['SplatRenderMode: mip']));
+    const source = await readPly(await plyFs.createSource('in.ply'), pool);
+    const out = new MemoryFileSystem();
+    await writeSource({ filename, outputFormat, source, pool, options: {} }, out);
+    const fileSystem = new MemoryReadFileSystem();
+    for (const [name, bytes] of out.results) fileSystem.set(name, bytes);
+    return fileSystem;
+};
+
+describe('columnNamesFromMeta', () => {
+    it('lists the canonical columns for a 0-band source', () => {
+        const src = dataTableToChunkSource(createTestDataTable(10));
+        assert.deepStrictEqual(columnNamesFromMeta(src.meta), STANDARD);
+    });
+
+    it('appends f_rest_0..N for each SH band count', () => {
+        for (const [bands, rest] of [[1, 9], [2, 24], [3, 45]]) {
+            const src = dataTableToChunkSource(createTestDataTable(10, { includeSH: true, shBands: bands }));
+            assert.strictEqual(src.meta.shBands, bands);
+            const cols = columnNamesFromMeta(src.meta);
+            assert.deepStrictEqual(cols.slice(0, STANDARD.length), STANDARD);
+            const restCols = cols.slice(STANDARD.length);
+            assert.strictEqual(restCols.length, rest);
+            assert.strictEqual(restCols[0], 'f_rest_0');
+            assert.strictEqual(restCols[rest - 1], `f_rest_${rest - 1}`);
+        }
+    });
+
+    it('appends extra (other-layer) columns last', () => {
+        const base = createTestDataTable(6);
+        const dt = new DataTable([...base.columns, new Column('my_extra', new Float32Array(6))]);
+        const src = dataTableToChunkSource(dt);
+        assert.deepStrictEqual(columnNamesFromMeta(src.meta), [...STANDARD, 'my_extra']);
+    });
+
+    it('reports only the available layers (position-only)', () => {
+        const n = 6;
+        const dt = new DataTable([
+            new Column('x', new Float32Array(n)),
+            new Column('y', new Float32Array(n)),
+            new Column('z', new Float32Array(n))
+        ]);
+        const src = dataTableToChunkSource(dt);
+        assert.deepStrictEqual([...src.meta.availableLayers], ['position']);
+        assert.deepStrictEqual(columnNamesFromMeta(src.meta), ['x', 'y', 'z']);
+    });
+});
+
+describe('readFileInfo', () => {
+    const options = { lodSelect: [] };
+
+    it('reports PLY structural metadata', async () => {
+        const dt = createTestDataTable(50, { includeSH: true, shBands: 1 });
+        const bytes = encodePlyBinary(dt);
+        const info = await readFileInfo({
+            filename: 'scene.ply', inputFormat: 'ply', options, params: [], fileSystem: memFs('scene.ply', bytes)
+        });
+        assert.strictEqual(info.format, 'ply');
+        assert.strictEqual(info.gaussian, true);
+        assert.strictEqual(info.numGaussians, 50);
+        assert.strictEqual(info.numLods, 1);
+        assert.deepStrictEqual(info.lodCounts, [50]);
+        assert.strictEqual(info.shBands, 1);
+        assert.strictEqual(info.model, 'default');
+        assert.deepStrictEqual(info.layers, ['position', 'geometric', 'color']);
+        assert.deepStrictEqual(info.extraColumns, []); // all standard columns, nothing extra
+    });
+
+    it('reports gaussian: false for a non-splat (point cloud) PLY', async () => {
+        const n = 5;
+        const dt = new DataTable([
+            new Column('x', new Float32Array(n)),
+            new Column('y', new Float32Array(n)),
+            new Column('z', new Float32Array(n)),
+            new Column('red', new Uint8Array(n)),
+            new Column('green', new Uint8Array(n)),
+            new Column('blue', new Uint8Array(n))
+        ]);
+        const info = await readFileInfo({
+            filename: 'cloud.ply', inputFormat: 'ply', options, params: [], fileSystem: memFs('cloud.ply', encodePlyBinary(dt))
+        });
+        assert.strictEqual(info.gaussian, false);
+        assert.deepStrictEqual(info.layers, ['position', 'other']);
+        assert.deepStrictEqual(info.extraColumns.map(e => e.name), ['red', 'green', 'blue']);
+    });
+
+    it('rejects a truncated PLY via the reader size guard', async () => {
+        const bytes = encodePlyBinary(createTestDataTable(50));
+        const truncated = bytes.subarray(0, bytes.length - 100);
+        await assert.rejects(
+            () => readFileInfo({
+                filename: 'scene.ply', inputFormat: 'ply', options, params: [], fileSystem: memFs('scene.ply', truncated)
+            }),
+            /does not match header-implied size/
+        );
+    });
+
+    it('reports .splat metadata and agrees with a full read', async () => {
+        const bytes = await fsReadFile(join(fixturesDir, 'minimal.splat'));
+        const fileSystem = memFs('minimal.splat', bytes);
+        const info = await readFileInfo({ filename: 'minimal.splat', inputFormat: 'splat', options, params: [], fileSystem });
+        assert.strictEqual(info.format, 'splat');
+        assert.strictEqual(info.gaussian, true);
+        assert.strictEqual(info.numGaussians, 4);
+        assert.strictEqual(info.shBands, 0);
+        assert.deepStrictEqual(info.extraColumns, []);
+
+        const [full] = await readFile({ filename: 'minimal.splat', inputFormat: 'splat', options, params: [], fileSystem });
+        assert.strictEqual(info.numGaussians, full.meta.numGaussians);
+        assert.deepStrictEqual(info.extraColumns, [...full.meta.extraColumns]);
+        await full.close();
+    });
+
+    it('reports .spz metadata', async () => {
+        const bytes = await fsReadFile(join(fixturesDir, 'minimal-v4.spz'));
+        const fileSystem = memFs('minimal.spz', bytes);
+        const info = await readFileInfo({ filename: 'minimal.spz', inputFormat: 'spz', options, params: [], fileSystem });
+        assert.strictEqual(info.format, 'spz');
+        assert.ok(info.numGaussians > 0);
+        assert.ok(info.layers.includes('position') && info.layers.includes('geometric'));
+    });
+
+    it('reports .spz metadata that agrees with a full read, for every version', async () => {
+        for (const fixture of ['minimal-raw.spz', 'minimal-v2.spz', 'minimal-v3.spz', 'minimal-v4.spz']) {
+            const bytes = await fsReadFile(join(fixturesDir, fixture));
+            const fileSystem = memFs('minimal.spz', bytes);
+            const info = await readFileInfo({ filename: 'minimal.spz', inputFormat: 'spz', options, params: [], fileSystem });
+            const [full] = await readFile({ filename: 'minimal.spz', inputFormat: 'spz', options, params: [], fileSystem });
+            assert.strictEqual(info.gaussian, true, fixture);
+            assert.strictEqual(info.numGaussians, full.meta.numGaussians, fixture);
+            assert.deepStrictEqual(info.lodCounts, [full.meta.numGaussians], fixture);
+            assert.strictEqual(info.shBands, full.meta.shBands, fixture);
+            assert.strictEqual(info.model, full.meta.model, fixture);
+            assert.deepStrictEqual(info.layers, ['position', 'geometric', 'color'], fixture);
+            await full.close();
+        }
+    });
+
+    it('reads a gzip-wrapped .spz from its header without decompressing the scene', async () => {
+        // v3 header (magic, version, numPoints, shDegree 0, fractionalBits 12) plus a
+        // payload large enough that its gzip stream is far longer than the prefix read
+        const numPoints = 100000;
+        const header = new Uint8Array(16);
+        const view = new DataView(header.buffer);
+        view.setUint32(0, 0x5053474e, true);
+        view.setUint32(4, 3, true);
+        view.setUint32(8, numPoints, true);
+        view.setUint8(13, 12);
+        const payload = randomBytes(numPoints * 20); // random, so it doesn't compress
+        const zipped = gzipSync(Buffer.concat([header, payload]));
+        assert.ok(zipped.length > 2 * 65536);
+
+        // only the first 64KB survives: a full read can't decode it, the header peek can
+        const fileSystem = memFs('big.spz', new Uint8Array(zipped.subarray(0, 65536)));
+        const info = await readFileInfo({ filename: 'big.spz', inputFormat: 'spz', options, params: [], fileSystem });
+        assert.strictEqual(info.numGaussians, numPoints);
+        assert.strictEqual(info.shBands, 0);
+        await assert.rejects(() => readFile({ filename: 'big.spz', inputFormat: 'spz', options, params: [], fileSystem }));
+    });
+
+    it('reads a gzip-wrapped .spz whose optional gzip header fields push the data past 64KB', async () => {
+        // re-wrap a v3 fixture with a 65,535-byte FEXTRA and a 70,000-byte FNAME, so the
+        // compressed data starts well past the first prefix read
+        const raw = gunzipSync(await fsReadFile(join(fixturesDir, 'minimal-v3.spz')));
+        const plain = gzipSync(raw);
+        const extra = Buffer.alloc(2 + 65535, 0x41);
+        extra.writeUInt16LE(65535, 0);
+        const name = Buffer.concat([Buffer.alloc(70000, 0x61), Buffer.from([0])]);
+        const header = Buffer.from(plain.subarray(0, 10));
+        header[3] |= 0x04 | 0x08; // FEXTRA | FNAME
+        const bytes = new Uint8Array(Buffer.concat([header, extra, name, plain.subarray(10)]));
+
+        const fileSystem = memFs('padded.spz', bytes);
+        const info = await readFileInfo({ filename: 'padded.spz', inputFormat: 'spz', options, params: [], fileSystem });
+        const [full] = await readFile({ filename: 'padded.spz', inputFormat: 'spz', options, params: [], fileSystem });
+        assert.strictEqual(info.numGaussians, full.meta.numGaussians);
+        assert.strictEqual(info.shBands, full.meta.shBands);
+        await full.close();
+    });
+
+    it('reports the model a SOG is tagged with, bundled or not, matching a full read', async () => {
+        // absolute, so the unbundled textures land beside meta.json (the writer
+        // resolves their paths against the current directory)
+        for (const [filename, outputFormat] of [['/out/meta.json', 'sog'], ['/out/scene.sog', 'sog-bundle']]) {
+            const fileSystem = await writeAntialiased(filename, outputFormat);
+            const info = await readFileInfo({ filename, inputFormat: 'sog', options, params: [], fileSystem });
+            const [full] = await readFile({ filename, inputFormat: 'sog', options, params: [], fileSystem });
+            assert.strictEqual(info.model, 'antialiased', filename);
+            assert.strictEqual(full.meta.model, 'antialiased', filename);
+            assert.strictEqual(info.numGaussians, full.meta.numGaussians, filename);
+            await full.close();
+        }
+    });
+
+    it('reports an antialiased .spz from its header flag, matching a full read', async () => {
+        // v4 (plaintext header) written from an antialiased-tagged PLY, and a
+        // gzip-wrapped v3 fixture with the flag set by hand
+        const raw = gunzipSync(await fsReadFile(join(fixturesDir, 'minimal-v3.spz')));
+        raw[14] |= 0x1;
+        const files = [
+            ['out.spz', await writeAntialiased('out.spz', 'spz')],
+            ['v3.spz', memFs('v3.spz', new Uint8Array(gzipSync(raw)))]
+        ];
+        for (const [filename, fileSystem] of files) {
+            const info = await readFileInfo({ filename, inputFormat: 'spz', options, params: [], fileSystem });
+            const [full] = await readFile({ filename, inputFormat: 'spz', options, params: [], fileSystem });
+            assert.strictEqual(info.model, 'antialiased', filename);
+            assert.strictEqual(full.meta.model, 'antialiased', filename);
+            await full.close();
+        }
+    });
+
+    it('rejects a corrupt gzip-wrapped .spz', async () => {
+        const bytes = new Uint8Array([0x1f, 0x8b, 0x08, 0x00, 0, 0, 0, 0, 0, 0x03, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]);
+        await assert.rejects(() => readFileInfo({
+            filename: 'corrupt.spz', inputFormat: 'spz', options, params: [], fileSystem: memFs('corrupt.spz', bytes)
+        }));
+    });
+
+    it('rejects a .spz with an invalid header', async () => {
+        const read = bytes => readFileInfo({
+            filename: 'bad.spz', inputFormat: 'spz', options, params: [], fileSystem: memFs('bad.spz', bytes)
+        });
+        await assert.rejects(() => read(new TextEncoder().encode('not an spz file at all')), /invalid \.spz file header/);
+
+        const wrongVersion = new Uint8Array(16);
+        new DataView(wrongVersion.buffer).setUint32(0, 0x5053474e, true);
+        new DataView(wrongVersion.buffer).setUint32(4, 9, true);
+        await assert.rejects(() => read(wrongVersion), /Unsupported \.spz version 9/);
+
+        await assert.rejects(() => read(new Uint8Array([0x4e, 0x47, 0x53, 0x50])), /File too small/);
+    });
+});
+
+describe('info process action', () => {
+    // Capture logger `output` events for the duration of `fn`.
+    const captureOutput = async (fn) => {
+        const outputs = [];
+        logger.setRenderer({ handle: (e) => e.kind === 'output' && outputs.push(e.text) });
+        try {
+            await fn();
+        } finally {
+            logger.setRenderer({ handle: () => {} });
+        }
+        return outputs;
+    };
+
+    it('passes the source through unchanged (meta-only)', async () => {
+        const pool = createChunkDataPool();
+        const src = dataTableToChunkSource(createTestDataTable(20, { includeSH: true, shBands: 1 }));
+        const out = await processSource(src, [{ kind: 'info' }], pool);
+        assert.strictEqual(out, src); // no-op pass-through
+        assert.strictEqual(out.meta.numGaussians, 20);
+        assert.strictEqual(out.meta.shBands, 1);
+    });
+
+    it('emits a text block by default', async () => {
+        const pool = createChunkDataPool();
+        const src = dataTableToChunkSource(createTestDataTable(20, { includeSH: true, shBands: 1 }));
+        const outputs = await captureOutput(() => processSource(src, [{ kind: 'info' }], pool));
+        assert.strictEqual(outputs.length, 1);
+        assert.match(outputs[0], /^gaussian: yes\n/); // no header line
+        assert.match(outputs[0], /gaussians: 20/);
+        assert.match(outputs[0], /sh bands: 1/);
+        assert.match(outputs[0], /layers: position, geometric, color/);
+        assert.match(outputs[0], /\nextra columns: \(none\)$/); // sentinel when there are no extras
+    });
+
+    it('emits exact counts, never abbreviated', async () => {
+        const pool = createChunkDataPool();
+        const src = dataTableToChunkSource(createTestDataTable(1234));
+        const outputs = await captureOutput(() => processSource(src, [{ kind: 'info' }], pool));
+        assert.match(outputs[0], /gaussians: 1234\n/);
+        assert.match(outputs[0], /lods: 1\n/);
+        assert.match(outputs[0], /lod counts: 1234\n/);
+    });
+
+    it('emits JSON when format is json', async () => {
+        const pool = createChunkDataPool();
+        const src = dataTableToChunkSource(createTestDataTable(20, { includeSH: true, shBands: 1 }));
+        const outputs = await captureOutput(() => processSource(src, [{ kind: 'info', format: 'json' }], pool));
+        assert.strictEqual(outputs.length, 1);
+        const info = JSON.parse(outputs[0]);
+        assert.strictEqual(info.gaussian, true);
+        assert.strictEqual(info.numGaussians, 20);
+        assert.strictEqual(info.numLods, 1);
+        assert.deepStrictEqual(info.lodCounts, [20]);
+        assert.strictEqual(info.shBands, 1);
+        assert.deepStrictEqual(info.layers, ['position', 'geometric', 'color']);
+        assert.deepStrictEqual(info.extraColumns, src.meta.extraColumns.map(e => ({ name: e.name, type: e.type })));
+    });
+
+    it('lists only extra (other-layer) columns, with their type', async () => {
+        const pool = createChunkDataPool();
+        const base = createTestDataTable(6);
+        const dt = new DataTable([...base.columns, new Column('my_extra', new Float32Array(6))]);
+        const src = dataTableToChunkSource(dt);
+
+        const text = (await captureOutput(() => processSource(src, [{ kind: 'info' }], pool)))[0];
+        assert.match(text, /extra columns: my_extra \(float32\)/);
+
+        const json = JSON.parse((await captureOutput(() => processSource(src, [{ kind: 'info', format: 'json' }], pool)))[0]);
+        assert.deepStrictEqual(json.extraColumns, [{ name: 'my_extra', type: 'float32' }]);
+        assert.ok(!('columns' in json), 'no legacy full-column list');
+    });
+
+    it('reports the input format when one is provided', async () => {
+        const pool = createChunkDataPool();
+        const src = dataTableToChunkSource(createTestDataTable(10));
+
+        const text = (await captureOutput(() => processSource(src, [{ kind: 'info' }], pool, { sourceFormat: 'ply' })))[0];
+        assert.match(text, /^format: ply\n/);
+
+        const json = JSON.parse((await captureOutput(() => processSource(src, [{ kind: 'info', format: 'json' }], pool, { sourceFormat: 'ply' })))[0]);
+        assert.strictEqual(json.format, 'ply');
+    });
+
+    it('reports gaussian: false for a non-splat source', async () => {
+        const pool = createChunkDataPool();
+        const n = 6;
+        const dt = new DataTable([
+            new Column('x', new Float32Array(n)),
+            new Column('y', new Float32Array(n)),
+            new Column('z', new Float32Array(n))
+        ]);
+        const src = dataTableToChunkSource(dt);
+        const outputs = await captureOutput(() => processSource(src, [{ kind: 'info', format: 'json' }], pool));
+        const info = JSON.parse(outputs[0]);
+        assert.strictEqual(info.gaussian, false);
+        assert.deepStrictEqual(info.layers, ['position']);
+    });
+});

@@ -1,0 +1,204 @@
+import type { GraphicsDevice } from 'playcanvas';
+import { WebgpuGraphicsDevice } from 'playcanvas';
+import { create, globals } from 'webgpu';
+
+import { logger } from '../lib';
+
+const initializeGlobals = () => {
+    Object.assign(globalThis, globals);
+
+    // window and document stubs
+    Object.assign(globalThis, {
+        window: { navigator: { userAgent: 'node.js' } },
+        document: {
+            createElement: (type: string) => {
+                if (type === 'canvas') {
+                    return {
+                        getContext: (): null => {
+                            return null;
+                        },
+                        getBoundingClientRect: () => {
+                            return {
+                                left: 0,
+                                top: 0,
+                                width: 300,
+                                height: 150,
+                                right: 300,
+                                bottom: 150
+                            };
+                        },
+                        width: 300,
+                        height: 150
+                    };
+                }
+            }
+        }
+    });
+};
+
+initializeGlobals();
+
+// Dawn option forcing a specific backend (e.g. 'vulkan'); none = Dawn's platform default.
+const backendOptions = (backend?: string) => (backend ? [`backend=${backend}`] : []);
+
+// Get Dawn's actual adapter names by triggering its error message.
+// This is the official documented method for enumerating adapters:
+// https://github.com/dawn-gpu/node-webgpu?tab=readme-ov-file#usage
+const getDawnAdapterNames = async (backend?: string): Promise<string[]> => {
+    try {
+        const gpu = create([...backendOptions(backend), 'adapter=__list_adapters__']);
+        const adapter = await gpu.requestAdapter();
+
+        // A forced backend with no adapters resolves null instead of throwing
+        if (!adapter && backend) {
+            return [];
+        }
+    } catch (e) {
+        // Parse Dawn's error message to extract adapter names
+        const message = e instanceof Error ? e.message : String(e);
+        const lines = message.split('\n');
+        const names: string[] = [];
+
+        for (const line of lines) {
+            // Look for lines like: " * backend: 'd3d12', name: 'NVIDIA RTX A2000 8GB Laptop GPU'"
+            const match = line.match(/backend:\s*'([^']+)',\s*name:\s*'([^']+)'/);
+            if (match && (!backend || match[1] === backend)) {
+                names.push(match[2]);
+            }
+        }
+
+        return names;
+    }
+
+    // Unexpected: requestAdapter should have thrown with invalid adapter name
+    logger.warn('Expected adapter enumeration to throw an error, but it did not.');
+    return [];
+};
+
+// Running peak of engine-tracked GPU memory in bytes, across every device
+// created by this module. Stays 0 until a device exists, so CPU-only runs
+// can suppress the readout entirely.
+let peakGpuBytes = 0;
+
+const getPeakGpuMemory = (): number => peakGpuBytes;
+
+// Cache enumerated adapters so we don't query Dawn multiple times
+let cachedAdapters: { index: number; name: string }[] | null = null;
+
+const enumerateAdapters = async (backend?: string) => {
+    if (cachedAdapters) {
+        return cachedAdapters;
+    }
+
+    try {
+        logger.info('Detecting GPU adapters...');
+
+        // Get the actual adapter names directly from Dawn
+        const dawnAdapterNames = await getDawnAdapterNames(backend);
+
+        // Cache and return the list
+        cachedAdapters = dawnAdapterNames.map((name, index) => ({
+            index,
+            name
+        }));
+
+        return cachedAdapters;
+    } catch (e) {
+        logger.error('Failed to enumerate adapters. Error:', e);
+        logger.error('\nThis usually means WebGPU is not available. Please ensure:');
+        logger.error('  - Your GPU drivers are up to date');
+        logger.error('  - Your GPU supports Vulkan, D3D12, or Metal');
+        return [];
+    }
+};
+
+const createDevice = async (adapterName?: string, backend?: string): Promise<GraphicsDevice> => {
+    // Use Dawn's adapter selection if a specific adapter name is provided
+    const dawnOptions = [...backendOptions(backend), ...(adapterName ? [`adapter=${adapterName}`] : [])];
+
+    // @ts-ignore
+    window.navigator.gpu = create(dawnOptions);
+
+    // A forced backend the machine lacks resolves a null adapter, which
+    // PlayCanvas would dereference with an opaque TypeError
+    // @ts-ignore
+    if (backend && !(await window.navigator.gpu.requestAdapter())) {
+        throw new Error(`No GPU adapter found for backend '${backend}'`);
+    }
+
+    const canvas = document.createElement('canvas');
+
+    canvas.width = 1024;
+    canvas.height = 512;
+
+    const graphicsDevice = new WebgpuGraphicsDevice(canvas, {
+        antialias: false,
+        depth: false,
+        stencil: false
+    });
+
+    await graphicsDevice.createDevice();
+
+    // Centralized GPU error handling. WebGPU never throws OOM/validation errors
+    // into JS — they arrive asynchronously via `uncapturederror` (when no error
+    // scope is active) or as device-lost, and PlayCanvas only Debug.warns then
+    // tries to recreate the device, burying the cause. Left unsurfaced, an OOM
+    // (e.g. a large scene on a smaller GPU) leaves buffers invalid/zeroed and
+    // consumers silently produce degenerate output — which is how a streamed-SOG
+    // LOD chain ended up with several identical full-resolution levels. Handling
+    // it here once means every GPU consumer (decimate, filters, voxelization, …)
+    // fails loudly without wrapping each call site in its own error scope.
+    // wgpu is private on WebgpuGraphicsDevice but exposed in practice
+    const wgpu: GPUDevice | undefined = graphicsDevice['wgpu'];
+
+    // A corrupted GPU result must never be written out, so we escalate to a hard
+    // failure: re-raise on the next tick so main()'s uncaughtException handler
+    // turns it into a non-zero exit. logger.error first so the precise cause is
+    // recorded even if the rethrow races process teardown.
+    const escalateGpuError = (summary: string) => {
+        logger.error(`WebGPU ${summary} — aborting (a corrupted GPU result must not be written)`);
+        const err = new Error(`WebGPU ${summary}`);
+        setImmediate(() => {
+            throw err;
+        });
+    };
+
+    wgpu?.addEventListener?.('uncapturederror', (ev) => {
+        const e = ev?.error;
+        const kind = e?.constructor?.name === 'GPUOutOfMemoryError' ? 'out-of-memory' : 'error';
+        escalateGpuError(`${kind}: ${e?.message || '(no message)'}`);
+    });
+
+    // Skip the `destroyed` reason — that fires on intentional device.destroy()
+    // during normal shutdown.
+    wgpu?.lost?.then((info) => {
+        if (info?.reason === 'destroyed') return;
+        escalateGpuError(`device lost: reason=${info?.reason || 'unknown'}, message=${info?.message || '(none)'}`);
+    });
+
+    // Peak GPU memory tracking. Dawn's node bindings expose no memory-
+    // statistics API, but the engine maintains live VRAM counters in the
+    // private `_vram` object ({ tex, vb, ib, ub, sb }): every resource
+    // wrapper (StorageBuffer, Texture, vertex/index/uniform buffers)
+    // adjusts them synchronously at allocate/destroy. Wrapping the object
+    // in a Proxy folds each counter write into a running peak at the
+    // moment it happens — no sampling gap, so short-lived spikes are
+    // captured. Blind spots: engine-internal readback staging buffers
+    // bypass `_vram`, and Dawn's own overhead (pipelines, heap padding)
+    // is invisible — the peak is a lower bound on true device memory.
+    const vram = graphicsDevice._vram;
+    graphicsDevice._vram = new Proxy(vram, {
+        set(target, prop, value) {
+            Reflect.set(target, prop, value);
+            const total = target.tex + target.vb + target.ib + target.ub + target.sb;
+            if (total > peakGpuBytes) {
+                peakGpuBytes = total;
+            }
+            return true;
+        }
+    });
+
+    return graphicsDevice;
+};
+
+export { createDevice, enumerateAdapters, getPeakGpuMemory };

@@ -1,0 +1,76 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+ENV/
+env/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+.next/
+out/
+
+# Environment & Secrets
+.env
+*.env
+*.env.local
+
+# Checkpoints, Model Weights & Large Binary Files (>50MB / GitHub limits)
+*.pt
+*.pth
+*.ckpt
+*.bin
+*.onnx
+*.npy
+*.npz
+*.safetensors
+ckpts/
+checkpoints/
+
+# 3D Splats & Point Clouds
+*.ply
+*.las
+*.laz
+*.splat
+
+# Datasets, Captures & Experiment Runs
+data/raw/
+data/processed/
+data/reconstructions/
+eyeful-colmap/
+eyeful-package/
+eyeful-splat/
+eyeful-splat-hq/
+captures/
+runs/
+outputs/
+live-sessions/
+external/
+
+# iOS / Xcode
+DerivedData/
+*.xcuserstate
+**/*.xcworkspace/xcuserdata/
+**/*.xcodeproj/xcuserdata/
+**/*.local.xcconfig
+*.xcarchive
+*.ipa
+
+# System & Editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

@@ -1,0 +1,147 @@
+/**
+ * HTML output format tests for splat-transform.
+ */
+
+import { describe, it, before } from 'node:test';
+import assert from 'node:assert';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { defaultSettings } from '@playcanvas/supersplat-viewer/settings';
+
+import {
+    writeHtml,
+    MemoryFileSystem,
+    WebPCodec
+} from '../src/lib/index.js';
+
+import { createMinimalTestData } from './helpers/test-utils.mjs';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+WebPCodec.wasmUrl = join(__dirname, '..', 'lib', 'webp.wasm');
+
+describe('HTML Format (Output Only)', () => {
+    let testData;
+
+    before(() => {
+        testData = createMinimalTestData();
+    });
+
+    it('should write bundled HTML viewer', async () => {
+        const writeFs = new MemoryFileSystem();
+        await writeHtml({
+            filename: 'viewer.html',
+            dataTable: testData,
+            bundle: true,
+            iterations: 3
+        }, writeFs);
+
+        const htmlData = writeFs.results.get('viewer.html');
+        assert(htmlData, 'HTML file should be written');
+        assert(htmlData.length > 0, 'HTML file should not be empty');
+
+        const htmlText = new TextDecoder().decode(htmlData);
+
+        // Verify basic HTML structure
+        assert(htmlText.includes('<!DOCTYPE html>') || htmlText.includes('<!doctype html>'),
+            'Should have DOCTYPE declaration');
+        assert(htmlText.includes('<html'), 'Should have html tag');
+        assert(htmlText.includes('<head'), 'Should have head tag');
+        assert(htmlText.includes('<body'), 'Should have body tag');
+
+        // The bootstrap block must carry the splat and settings inline; if any of these
+        // regress, the page silently falls back to fetching missing sibling files
+        assert(htmlText.includes('"contentUrl":"data:application/octet-stream;base64,'),
+            'Bootstrap should embed the splat as a data: URI');
+        assert(htmlText.includes('"contentFilename":"scene.sog"'),
+            'Bootstrap should name the data: URI content so the sog parser is selected');
+        assert(htmlText.includes('"settings":{'),
+            'Bootstrap should embed the viewer settings inline');
+
+        // Self-contained: no external stylesheet or module references. Note ./settings.json
+        // legitimately remains in the script as the default settingsUrl; the inline
+        // bootstrap settings take precedence over it
+        assert(!htmlText.includes('./index.css'), 'Stylesheet should be inlined, not linked');
+        assert(!htmlText.includes('./index.js'), 'Module bundle should be inlined, not imported');
+
+        // For bundled, everything should be in one file
+        assert.strictEqual(writeFs.results.size, 1, 'Bundled should only produce one file');
+    });
+
+    it('should write unbundled HTML viewer with separate files', async () => {
+        const writeFs = new MemoryFileSystem();
+        await writeHtml({
+            filename: 'output/viewer.html',
+            dataTable: testData,
+            bundle: false,
+            iterations: 3
+        }, writeFs);
+
+        const htmlData = writeFs.results.get('output/viewer.html');
+        assert(htmlData, 'HTML file should be written');
+
+        const htmlText = new TextDecoder().decode(htmlData);
+        assert(htmlText.includes('<html'), 'Should have html tag');
+
+        // The document must actually reference the sibling files it ships with
+        assert(htmlText.includes('"contentUrl":"viewer.sog"'),
+            'Bootstrap should point at the sibling .sog file');
+        assert(htmlText.includes('href="./index.css"'), 'Should link the sibling stylesheet');
+        const imported = htmlText.match(/import \{ (\w+) \} from '\.\/index\.js';/);
+        assert(imported, 'Should import the sibling module bundle');
+        const jsText = new TextDecoder().decode(writeFs.results.get('output/index.js'));
+        assert(new RegExp(`export\\s*\\{[^}]*\\b${imported[1]}\\b`).test(jsText),
+            `The sibling module bundle should export ${imported[1]}`);
+        assert(htmlText.includes('./settings.json'), 'Should fetch the sibling settings file');
+
+        // For unbundled, should have additional files
+        assert(writeFs.results.size > 1, 'Unbundled should produce multiple files');
+
+        // Check for expected additional files
+        const fileNames = Array.from(writeFs.results.keys());
+        const hasCSS = fileNames.some(f => f.endsWith('.css'));
+        const hasJS = fileNames.some(f => f.endsWith('.js'));
+        const hasSOG = fileNames.some(f => f.endsWith('.sog'));
+
+        assert(hasCSS, 'Should produce CSS file');
+        assert(hasJS, 'Should produce JS file');
+        assert(hasSOG, 'Should produce SOG file');
+    });
+
+    it('should accept viewer settings JSON', async () => {
+        const writeFs = new MemoryFileSystem();
+        const settings = defaultSettings('object');
+        settings.background.color = [0.25, 0.5, 0.75];
+        await writeHtml({
+            filename: 'viewer.html',
+            dataTable: testData,
+            bundle: true,
+            iterations: 3,
+            viewerSettingsJson: settings
+        }, writeFs);
+
+        const htmlData = writeFs.results.get('viewer.html');
+        assert(htmlData, 'HTML file should be written');
+
+        // The supplied settings should be embedded in the bootstrap verbatim
+        const htmlText = new TextDecoder().decode(htmlData);
+        assert(htmlText.includes('"color":[0.25,0.5,0.75]'),
+            'Custom settings should be embedded in the bootstrap');
+    });
+
+    it('should reject viewer settings JSON the viewer cannot read', async () => {
+        const writeFs = new MemoryFileSystem();
+        await assert.rejects(
+            writeHtml({
+                filename: 'viewer.html',
+                dataTable: testData,
+                bundle: true,
+                iterations: 3,
+                viewerSettingsJson: { version: 2, backgroundColor: '#000000', autoRotate: true }
+            }, writeFs),
+            /settings\.tonemapping/,
+            'Invalid settings should fail naming the offending field, not produce a blank page'
+        );
+        assert(!writeFs.results.has('viewer.html'), 'No HTML file should be written');
+    });
+});

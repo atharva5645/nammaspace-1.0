@@ -1,0 +1,485 @@
+:root {
+    --ns-bg: #0c0d12;
+    --ns-panel-bg: rgba(18, 20, 28, 0.82);
+    --ns-panel-border: rgba(255, 255, 255, 0.08);
+    --ns-panel-blur: 16px;
+    --ns-text-main: #f3f4f6;
+    --ns-text-muted: #9ca3af;
+    --ns-text-dim: #6b7280;
+    --ns-accent: #3b82f6;
+    --ns-accent-hover: #2563eb;
+    --ns-error: #ef4444;
+    --ns-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --ns-radius-sm: 6px;
+    --ns-radius-md: 10px;
+    --ns-radius-lg: 14px;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: var(--ns-bg);
+    color: var(--ns-text-main);
+    font-family: var(--ns-font-family);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+}
+
+.ns-app-root {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+/* ==================================================
+   VIEWER CANVAS CONTAINER
+   ================================================== */
+.ns-viewer-container {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    inset: 0;
+}
+
+.ns-playcanvas-canvas {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+}
+
+/* ==================================================
+   HUD / NAVIGATION BAR
+   ================================================== */
+.ns-hud-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    pointer-events: none; /* Let canvas receive interactions underneath */
+    z-index: 20;
+}
+
+.ns-hud-brand {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    user-select: none;
+    pointer-events: auto;
+    background: rgba(12, 13, 18, 0.45);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    padding: 8px 14px;
+    border-radius: var(--ns-radius-md);
+    border: 1px solid var(--ns-panel-border);
+}
+
+.ns-hud-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--ns-text-main);
+}
+
+.ns-hud-tagline {
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.3px;
+    color: var(--ns-text-muted);
+}
+
+.ns-hud-actions {
+    display: flex;
+    gap: 8px;
+    pointer-events: auto;
+}
+
+.ns-hud-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--ns-radius-md);
+    background: var(--ns-panel-bg);
+    border: 1px solid var(--ns-panel-border);
+    backdrop-filter: blur(var(--ns-panel-blur));
+    -webkit-backdrop-filter: blur(var(--ns-panel-blur));
+    color: var(--ns-text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    padding: 0;
+}
+
+.ns-hud-btn:hover {
+    color: var(--ns-text-main);
+    background: rgba(28, 32, 46, 0.9);
+    border-color: rgba(255, 255, 255, 0.16);
+}
+
+.ns-hud-btn.active {
+    color: var(--ns-text-main);
+    background: rgba(59, 130, 246, 0.25);
+    border-color: var(--ns-accent);
+}
+
+/* ==================================================
+   ROOM INFO CARD
+   ================================================== */
+.ns-info-card {
+    position: absolute;
+    bottom: 24px;
+    right: 20px;
+    width: 300px;
+    background: var(--ns-panel-bg);
+    border: 1px solid var(--ns-panel-border);
+    backdrop-filter: blur(var(--ns-panel-blur));
+    -webkit-backdrop-filter: blur(var(--ns-panel-blur));
+    border-radius: var(--ns-radius-lg);
+    padding: 16px;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
+    z-index: 25;
+    animation: nsFadeInUp 0.2s ease-out;
+}
+
+.ns-info-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--ns-panel-border);
+}
+
+.ns-info-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ns-text-main);
+}
+
+.ns-info-id {
+    font-size: 11px;
+    color: var(--ns-text-dim);
+}
+
+.ns-info-close {
+    background: transparent;
+    border: none;
+    color: var(--ns-text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px;
+    line-height: 1;
+}
+
+.ns-info-close:hover {
+    color: var(--ns-text-main);
+}
+
+.ns-info-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ns-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+}
+
+.ns-info-label {
+    color: var(--ns-text-muted);
+}
+
+.ns-info-val {
+    color: var(--ns-text-main);
+    font-weight: 500;
+}
+
+.ns-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 10px;
+}
+
+/* ==================================================
+   LOADING SCREEN
+   ================================================== */
+.ns-loading-screen {
+    position: absolute;
+    inset: 0;
+    background-color: var(--ns-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    animation: nsFadeIn 0.2s ease-out;
+}
+
+.ns-loading-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 32px 40px;
+    border-radius: var(--ns-radius-lg);
+    background: var(--ns-panel-bg);
+    border: 1px solid var(--ns-panel-border);
+    backdrop-filter: blur(var(--ns-panel-blur));
+    -webkit-backdrop-filter: blur(var(--ns-panel-blur));
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+    max-width: 320px;
+    width: 90%;
+}
+
+.ns-loading-brand {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 24px;
+}
+
+.ns-brand-title {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: var(--ns-text-main);
+}
+
+.ns-brand-subtitle {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--ns-text-muted);
+    letter-spacing: 0.5px;
+}
+
+.ns-loader-indicator {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 16px;
+}
+
+.ns-spinner-indeterminate {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-top-color: var(--ns-accent);
+    animation: nsSpin 0.9s cubic-bezier(0.5, 0.1, 0.4, 0.9) infinite;
+}
+
+.ns-progress-track {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.ns-progress-fill {
+    height: 100%;
+    background: var(--ns-accent);
+    border-radius: 999px;
+    transition: width 0.2s ease-out;
+}
+
+.ns-loading-message {
+    margin: 0;
+    font-size: 13px;
+    color: var(--ns-text-muted);
+}
+
+.ns-progress-text {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--ns-text-dim);
+    font-weight: 500;
+}
+
+/* ==================================================
+   ERROR SCREEN
+   ================================================== */
+.ns-error-screen {
+    position: absolute;
+    inset: 0;
+    background-color: var(--ns-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    animation: nsFadeIn 0.2s ease-out;
+}
+
+.ns-error-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 32px 36px;
+    border-radius: var(--ns-radius-lg);
+    background: var(--ns-panel-bg);
+    border: 1px solid var(--ns-panel-border);
+    backdrop-filter: blur(var(--ns-panel-blur));
+    -webkit-backdrop-filter: blur(var(--ns-panel-blur));
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+    max-width: 360px;
+    width: 90%;
+}
+
+.ns-error-brand {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 20px;
+}
+
+.ns-error-icon {
+    color: var(--ns-error);
+    margin-bottom: 16px;
+}
+
+.ns-error-heading {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ns-text-main);
+}
+
+.ns-error-detail {
+    margin: 0 0 20px 0;
+    font-size: 12px;
+    color: var(--ns-text-muted);
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.ns-retry-button {
+    background: var(--ns-accent);
+    color: #ffffff;
+    border: none;
+    border-radius: var(--ns-radius-sm);
+    padding: 9px 24px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.ns-retry-button:hover {
+    background: var(--ns-accent-hover);
+}
+
+/* ==================================================
+   ANIMATIONS
+   ================================================== */
+@keyframes nsSpin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes nsFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes nsFadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ==================================================
+   EXPLORE INSTRUCTION PROMPT
+   ================================================== */
+.ns-explore-prompt {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    background: rgba(12, 13, 18, 0.65);
+    border: 1px solid var(--ns-panel-border);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: 999px;
+    padding: 7px 18px;
+    cursor: pointer;
+    z-index: 20;
+    user-select: none;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    transition: all 0.25s ease;
+    animation: nsFadeInUp 0.3s ease-out;
+}
+
+.ns-explore-prompt:hover {
+    background: rgba(28, 32, 46, 0.85);
+    border-color: rgba(255, 255, 255, 0.18);
+    transform: translateX(-50%) translateY(-2px);
+}
+
+.ns-prompt-pill {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ns-text-main);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ns-prompt-pill::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ns-accent);
+}
+
+.ns-prompt-keys {
+    font-size: 10px;
+    font-weight: 400;
+    letter-spacing: 0.3px;
+    color: var(--ns-text-muted);
+}
+

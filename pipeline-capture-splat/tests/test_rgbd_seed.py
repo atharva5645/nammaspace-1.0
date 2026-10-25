@@ -1,0 +1,296 @@
+from pathlib import Path
+
+import numpy as np
+from PIL import Image
+
+from capture_splat.capture_schema import CaptureFrame
+from capture_splat.json_utils import load_json_strict, write_json_strict
+from capture_splat.rgbd_seed import (
+    _frame_points,
+    apply_sim3,
+    build_rgbd_metric_seed,
+    estimate_sim3,
+    read_colmap_camera_centers,
+)
+
+
+def _source_positions() -> np.ndarray:
+    return np.asarray([
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.1],
+        [0.1, 1.0, 0.2],
+        [1.0, 1.0, 0.4],
+        [0.3, 0.2, 1.0],
+        [1.2, 0.4, 1.1],
+        [0.2, 1.3, 0.8],
+        [1.1, 1.2, 1.4],
+    ])
+
+
+def test_estimate_sim3_recovers_known_transform() -> None:
+    source = _source_positions()
+    angle = np.deg2rad(25)
+    rotation = np.asarray([
+        [np.cos(angle), -np.sin(angle), 0],
+        [np.sin(angle), np.cos(angle), 0],
+        [0, 0, 1],
+    ])
+    target = apply_sim3(source, 1.7, rotation, np.asarray([2.0, -1.0, 0.5]))
+
+    scale, estimated_rotation, translation = estimate_sim3(source, target)
+
+    np.testing.assert_allclose(scale, 1.7, atol=1e-9)
+    np.testing.assert_allclose(estimated_rotation, rotation, atol=1e-9)
+    np.testing.assert_allclose(translation, [2.0, -1.0, 0.5], atol=1e-9)
+
+
+def _write_capture(root: Path, positions: np.ndarray) -> Path:
+    root.mkdir(parents=True)
+    frames = []
+    for index, position in enumerate(positions, start=1):
+        image = root / "images" / f"{index:06d}.jpg"
+        depth = root / "depth" / f"{index:06d}.npy"
+        confidence = root / "confidence" / f"{index:06d}.npy"
+        image.parent.mkdir(parents=True, exist_ok=True)
+        depth.parent.mkdir(parents=True, exist_ok=True)
+        confidence.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (8, 6), (20 * index, 80, 120)).save(image)
+        np.save(depth, np.full((3, 4), 1.0, dtype=np.float32), allow_pickle=False)
+        np.save(confidence, np.full((3, 4), 2, dtype=np.uint8), allow_pickle=False)
+        transform = np.eye(4)
+        transform[:3, 3] = position
+        frames.append({
+            "rgb": image.relative_to(root).as_posix(),
+            "depth": depth.relative_to(root).as_posix(),
+            "confidence": confidence.relative_to(root).as_posix(),
+            "timestamp": float(index),
+            "transform_matrix": transform.tolist(),
+            "intrinsics": {"fl_x": 4, "fl_y": 4, "cx": 2, "cy": 1.5, "w": 4, "h": 3},
+            "capture_quality": {"accepted": True},
+        })
+    write_json_strict(root / "capture.json", {
+        "schema": "capture_splat.v0.3",
+        "depth_scale": 1.0,
+        "session_config": {"scale_authority": "arkit_vio_metric"},
+        "frames": frames,
+    })
+    return root
+
+
+def _write_package(root: Path, centers: np.ndarray) -> Path:
+    sparse = root / "sparse/0"
+    images = root / "images"
+    sparse.mkdir(parents=True)
+    images.mkdir(parents=True)
+    (sparse / "cameras.txt").write_text("# cameras\n1 PINHOLE 8 6 4 4 4 3\n", encoding="utf-8")
+    lines = ["# images"]
+    for index, center in enumerate(centers, start=1):
+        translation = -center
+        lines.extend([
+            f"{index} 1 0 0 0 {translation[0]} {translation[1]} {translation[2]} 1 {index:06d}.jpg",
+            "",
+        ])
+    (sparse / "images.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (sparse / "points3D.txt").write_text("# points\n1 2 4 6 10 20 30 0\n", encoding="utf-8")
+    (sparse / "points3D.bin").write_bytes(b"original-binary")
+    return root
+
+
+def _write_mesh(capture: Path) -> None:
+    geometry = capture / "geometry"
+    geometry.mkdir()
+    points = [
+        (-0.2, -0.2, -1.0),
+        (0.2, -0.2, -1.0),
+        (-0.2, 0.2, -1.0),
+        (0.2, 0.2, -1.0),
+        (0.0, 0.0, -1.2),
+    ]
+    (geometry / "arkit_mesh.ply").write_text(
+        "\n".join([
+            "ply",
+            "format ascii 1.0",
+            f"element vertex {len(points)}",
+            "property float x",
+            "property float y",
+            "property float z",
+            "end_header",
+            *(f"{x} {y} {z}" for x, y, z in points),
+        ]) + "\n",
+        encoding="ascii",
+    )
+    write_json_strict(geometry / "arkit_mesh_report.json", {
+        "schema": "capture_splat.arkit_mesh_report.v0.2",
+        "status": "finite_mesh_written",
+        "ply_written": True,
+        "non_finite_vertex_count": 0,
+    })
+    manifest = load_json_strict(capture / "capture.json")
+    manifest["arkit_mesh_file"] = "geometry/arkit_mesh.ply"
+    manifest["arkit_mesh_report_file"] = "geometry/arkit_mesh_report.json"
+    write_json_strict(capture / "capture.json", manifest)
+
+
+def test_build_rgbd_seed_augments_only_copied_package(tmp_path: Path) -> None:
+    source = _source_positions()
+    target = source * 2.0 + np.asarray([1.0, 2.0, 3.0])
+    capture = _write_capture(tmp_path / "capture", source)
+    package = _write_package(tmp_path / "package", target)
+    write_json_strict(package / "metadata/package_orientation_transform.json", {
+        "schema": "capture_splat.package_orientation_transform.v0.1",
+        "transform": [[1, 0, 0, 2], [0, 1, 0, 4], [0, 0, 1, 6], [0, 0, 0, 1]],
+        "source_coordinate_frame": "colmap_world_before_orientation",
+        "target_coordinate_frame": "colmap_world",
+        "scale": 1.0,
+        "median_camera_center_residual": 0.2,
+        "max_camera_center_residual": 0.4,
+    })
+
+    summary = build_rgbd_metric_seed(capture, package, tmp_path / "out", max_points=100)
+
+    assert summary["decision"] == "promote"
+    assert summary["alignment"]["accepted"] is True
+    assert 0 < summary["seed_point_count"] <= 100
+    assert summary["package_augmented"] is True
+    assert (tmp_path / "out/metric_seed.ply").exists()
+    assert not (tmp_path / "out/package/sparse/0/points3D.bin").exists()
+    assert (tmp_path / "out/package/sparse/0_colmap_refined/points3D.bin").exists()
+    assert (tmp_path / "package/sparse/0/points3D.txt").read_text(encoding="utf-8") == (
+        "# points\n1 2 4 6 10 20 30 0\n"
+    )
+    assert len((tmp_path / "out/package/sparse/0/points3D.txt").read_text(encoding="utf-8").splitlines()) > 1
+    output_centers = read_colmap_camera_centers(tmp_path / "out/package/sparse/0/images.txt")
+    np.testing.assert_allclose(output_centers["000001.jpg"], target[0] / 2.0)
+    scaled_point = (tmp_path / "out/package/sparse/0/points3D.txt").read_text(encoding="utf-8").splitlines()[1].split()
+    np.testing.assert_allclose([float(value) for value in scaled_point[1:4]], [1.0, 2.0, 3.0])
+    report = load_json_strict(tmp_path / "out/package/metadata/metric_scale_report.json")
+    assert report["status"] == "accepted"
+    np.testing.assert_allclose(report["meters_per_colmap_unit"], 0.5)
+    assert report["scale_authority"] == "arkit_vio_metric"
+    assert report["input_checksums"]["images_txt"].startswith("sha256:")
+    assert report["input_checksums"]["cameras_txt"].startswith("sha256:")
+    assert report["output_checksums"]["metric_seed_ply"].startswith("sha256:")
+    assert len(report["consumed_capture_assets"]) == len(source) * 3
+    orientation = load_json_strict(tmp_path / "out/package/metadata/package_orientation_transform.json")
+    np.testing.assert_allclose(
+        orientation["transform"],
+        [[0.5, 0, 0, 1], [0, 0.5, 0, 2], [0, 0, 0.5, 3], [0, 0, 0, 1]],
+    )
+    assert orientation["target_coordinate_frame"] == "metric_colmap_world"
+    np.testing.assert_allclose(orientation["median_camera_center_residual"], 0.1)
+
+
+def test_build_rgbd_seed_holds_on_bad_alignment_without_augmentation(tmp_path: Path) -> None:
+    source = _source_positions()
+    target = source * 2.0
+    target[::2] += np.asarray([3.0, -2.0, 1.0])
+    capture = _write_capture(tmp_path / "capture", source)
+    package = _write_package(tmp_path / "package", target)
+
+    summary = build_rgbd_metric_seed(capture, package, tmp_path / "out")
+    saved = load_json_strict(tmp_path / "out/capture_splat_rgbd_seed_summary.json")
+
+    assert summary["decision"] == "hold"
+    assert saved["alignment"]["accepted"] is False
+    assert saved["package_augmented"] is False
+    assert (tmp_path / "out/package/sparse/0/points3D.bin").exists()
+    assert not (tmp_path / "out/metric_seed.ply").exists()
+
+
+def test_build_rgbd_seed_alignment_ignores_non_rgbd_supplements(tmp_path: Path) -> None:
+    source = _source_positions()
+    target = source * 2.0 + np.asarray([1.0, 2.0, 3.0])
+    capture = _write_capture(tmp_path / "capture", source)
+    package = _write_package(tmp_path / "package", target)
+    supplement = capture / "images/000009.jpg"
+    Image.new("RGB", (8, 6), (10, 20, 30)).save(supplement)
+    manifest = load_json_strict(capture / "capture.json")
+    manifest["frames"].append({
+        "rgb": "images/000009.jpg",
+        "timestamp": 9.0,
+        "transform_matrix": np.eye(4).tolist(),
+        "intrinsics": {"fl_x": 4, "fl_y": 4, "cx": 2, "cy": 1.5, "w": 4, "h": 3},
+        "capture_quality": {"accepted": True},
+        "source_kind": "continuous_video",
+    })
+    write_json_strict(capture / "capture.json", manifest)
+    with (package / "sparse/0/images.txt").open("a", encoding="utf-8") as handle:
+        handle.write("9 1 0 0 0 -1000 -1000 -1000 1 000009.jpg\n\n")
+
+    summary = build_rgbd_metric_seed(capture, package, tmp_path / "out", max_points=100)
+
+    assert summary["decision"] == "promote"
+    assert summary["alignment"]["matched_cameras"] == len(source)
+    assert "000009.jpg" not in summary["matched_frame_names"]
+
+
+def test_frame_points_scales_rgb_intrinsics_and_depth_units_to_depth_grid(tmp_path: Path) -> None:
+    capture = tmp_path / "capture"
+    (capture / "images").mkdir(parents=True)
+    (capture / "depth").mkdir()
+    Image.new("RGB", (8, 6), (20, 80, 120)).save(capture / "images/000001.jpg")
+    np.save(capture / "depth/000001.npy", np.full((3, 4), 1000.0, dtype=np.float32), allow_pickle=False)
+    frame = CaptureFrame(
+        index=1,
+        source_index=1,
+        image_path="images/000001.jpg",
+        transform_matrix=np.eye(4).tolist(),
+        intrinsics={"fl_x": 8.0, "fl_y": 8.0, "cx": 4.0, "cy": 3.0, "w": 8.0, "h": 6.0},
+        timestamp=0.0,
+        accepted=True,
+    )
+
+    points, _ = _frame_points(
+        capture,
+        frame,
+        {"depth": "depth/000001.npy"},
+        points_per_frame=100,
+        confidence_minimum=0,
+        depth_scale=0.001,
+    )
+
+    np.testing.assert_allclose(points[6], [0.0, 0.125, -1.0])
+
+
+def test_build_rgbd_seed_preserves_non_metric_fallback_without_scale_authority(tmp_path: Path) -> None:
+    source = _source_positions()
+    capture = _write_capture(tmp_path / "capture", source)
+    manifest = load_json_strict(capture / "capture.json")
+    manifest.pop("session_config")
+    write_json_strict(capture / "capture.json", manifest)
+    package = _write_package(tmp_path / "package", source * 2.0)
+
+    summary = build_rgbd_metric_seed(capture, package, tmp_path / "out")
+
+    assert summary["decision"] == "promote"
+    assert summary["metric_scale_status"] == "unavailable"
+    assert summary["output_coordinate_frame"] == "colmap_world"
+    assert summary["package_augmented"] is True
+    assert "arkit_metric_scale_authority_missing_seed_in_colmap_units" in summary["warnings"]
+    assert not (tmp_path / "out/package/metadata/metric_scale_report.json").exists()
+
+
+def test_build_metric_seed_can_use_report_bound_arkit_mesh_vertices(tmp_path: Path) -> None:
+    source = _source_positions()
+    target = source * 2.0 + np.asarray([1.0, 2.0, 3.0])
+    capture = _write_capture(tmp_path / "capture", source)
+    _write_mesh(capture)
+    package = _write_package(tmp_path / "package", target)
+
+    summary = build_rgbd_metric_seed(
+        capture,
+        package,
+        tmp_path / "out",
+        seed_source="mesh",
+        max_points=100,
+    )
+
+    assert summary["decision"] == "promote"
+    assert summary["seed_source_requested"] == "mesh"
+    assert summary["seed_source_resolved"] == "mesh"
+    assert summary["seed_point_count"] == 5
+    assert summary["mesh_seed"]["rgb_colored_point_count"] > 0
+    assert len(summary["mesh_seed"]["mesh"]["checksum"]) == 71
+    report = load_json_strict(tmp_path / "out/package/metadata/metric_scale_report.json")
+    consumed = {item["path"] for item in report["consumed_capture_assets"]}
+    assert consumed == {"geometry/arkit_mesh.ply", "geometry/arkit_mesh_report.json"}

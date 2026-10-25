@@ -1,0 +1,7 @@
+.venv
+__pycache__/
+*.pyc
+
+/index.html
+/link-report.md
+/preview/

@@ -1,0 +1,56 @@
+name: Validate PR Changes
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'awesome_3dgs_papers.yaml'
+      - 'src/**'
+      - 'requirements-ci.txt'
+
+concurrency:
+  group: validate-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      pull-requests: read
+      contents: read
+
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.10'
+        cache: pip
+        cache-dependency-path: requirements-ci.txt
+
+    - name: Install dependencies
+      run: pip install -r requirements-ci.txt
+
+    - name: Build the site
+      run: |
+        mkdir -p preview
+        python src/generate.py awesome_3dgs_papers.yaml preview/index.html
+        cp -r assets preview/assets
+
+    - name: Upload site preview
+      uses: actions/upload-artifact@v5
+      with:
+        name: site-preview
+        path: preview
+        retention-days: 7
+
+    - name: Validate changed YAML entries
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        REPO: ${{ github.repository }}
+      run: python src/validate_yaml.py

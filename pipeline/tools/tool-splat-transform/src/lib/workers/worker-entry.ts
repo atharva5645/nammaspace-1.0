@@ -1,0 +1,70 @@
+import { WebPCodec } from '../utils/webp-codec';
+
+import { taskHandlers } from './tasks';
+import type { HostMessage, WorkerMessage } from './tasks';
+
+/**
+ * Worker-side entry point, built and shipped as `dist/worker.mjs` (see
+ * rollup.config.mjs) and spawned by WorkerQueue from a URL. Runs one task at a
+ * time and posts the result back with its buffers transferred.
+ */
+
+const bind = (
+    post: (message: WorkerMessage, transfer: ArrayBuffer[]) => void,
+    listen: (handler: (message: HostMessage) => void) => void
+) => {
+    listen(async (message) => {
+        if (message.type === 'init') {
+            // resolved host-side and handed in, so the worker uses the same
+            // wasm location as the host regardless of its own module URL
+            WebPCodec.wasmUrl = message.wasmUrl;
+            return;
+        }
+
+        try {
+            const { result, transfer } = await taskHandlers[message.task](message.args as never);
+            post({ type: 'result', result }, transfer);
+        } catch (err) {
+            post(
+                {
+                    type: 'error',
+                    message: err instanceof Error ? err.message : String(err),
+                    stack: err instanceof Error ? err.stack : undefined
+                },
+                []
+            );
+        }
+    });
+
+    // unprompted readiness signal: lets the host distinguish "environment
+    // cannot run workers" (no ready, fall back inline) from a task crashing
+    // a live worker
+    post({ type: 'ready' }, []);
+};
+
+// same guard as WorkerQueue's isNode: a real worker_threads worker, not an
+// Electron renderer (where process.versions.node is present but messaging goes
+// through the Web Worker scope)
+if (
+    typeof process !== 'undefined' &&
+    !!process.versions?.node &&
+    (process as NodeJS.Process & { type?: string }).type !== 'renderer'
+) {
+    // node MessagePorts buffer messages until a listener attaches, so the
+    // host's init message survives this async import
+    import('node:worker_threads').then(({ parentPort }) => {
+        bind(
+            (message, transfer) => parentPort.postMessage(message, transfer),
+            (handler) => parentPort.on('message', handler)
+        );
+    });
+} else {
+    // dom lib types globalThis as Window; the options form of postMessage is
+    // valid on both Window and the dedicated worker scope
+    bind(
+        (message, transfer) => globalThis.postMessage(message, { transfer }),
+        (handler) => {
+            globalThis.onmessage = (event) => handler(event.data);
+        }
+    );
+}
