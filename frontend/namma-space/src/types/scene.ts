@@ -28,13 +28,14 @@ export interface Waypoint {
 }
 
 export interface NavigationConfig {
-    mode: 'first-person';
+    mode: 'first-person' | 'camera-rail';
     eyeHeight: number;
     movementSpeed: number;
     fastMovementSpeed: number;
     lookSensitivity: number;
     pitchRange: [number, number];
     boundaryMargin: number;
+    railUrl?: string; // URL to camera rail JSON when mode === 'camera-rail'
 }
 
 export interface SceneMetadata {

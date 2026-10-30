@@ -1,28 +1,102 @@
 import type { SceneConfig } from '../types/scene';
 
 /**
- * NammaSpace Scene Configuration
+ * Supermarket Aisle High-Fidelity Leveled Digital Twin
  *
- * Holds the spatial configuration for the digital twin scene.
- * Structured to be seamlessly loadable from a future backend API (e.g. GET /api/scenes/:id).
+ * Reconstructed with standard gradient-based 3DGS (15,000 steps)
+ * leveled to horizontal floor plane, pruned floaters, and anti-needle clamped.
+ */
+export const supermarketSceneConfig: SceneConfig = {
+    id: 'supermarket-001',
+    name: 'Supermarket Aisle (Leveled Digital Twin)',
+    asset: '/supermarket_hq_leveled.sog',
+    useLod: false,
+    splatBudget: 2000000,
+    splatBudgetMode: 'target',
+
+    transform: {
+        position: [0, 0, 0],
+        rotation: [0, 0, 0],
+        scale: [1, 1, 1],
+    },
+
+    // Camera spawns standing upright in the open walkway corridor looking down the aisle
+    camera: {
+        position: [0.0, 0.22, 1.80],
+        lookAt: [0.0, 0.22, -2.50],
+        fov: 65,
+        clearColor: '#0c0d12',
+    },
+
+    // First-person indoor navigation calibrated to normalized aisle coordinates
+    navigation: {
+        mode: 'first-person',
+        eyeHeight: 0.22,
+        movementSpeed: 0.12, // Calm, smooth walking speed
+        fastMovementSpeed: 0.28, // Sprint speed with Shift
+        lookSensitivity: 0.10, // Smooth mouse look
+        pitchRange: [-85, 85],
+        boundaryMargin: 0.05,
+    },
+
+    // Bounding envelope covering the complete walkway and grocery shelf units
+    bounds: {
+        min: [-2.00, 0.05, -7.00],
+        max: [2.00, 1.50, 2.50],
+    },
+
+    waypoints: [
+        {
+            id: 'wp-aisle-entrance',
+            name: 'Aisle Walkway Entrance',
+            position: [0.0, 0.22, 1.80],
+            rotation: [0, 0, 0],
+            description: 'Standing at the start of the supermarket grocery aisle looking straight down the corridor',
+        },
+        {
+            id: 'wp-aisle-mid',
+            name: 'Mid-Aisle Walkway',
+            position: [0.0, 0.22, -0.80],
+            rotation: [0, 0, 0],
+            description: 'Walking halfway down the aisle flanked by grocery shelves and packaged goods',
+        },
+        {
+            id: 'wp-shelves-hq',
+            name: 'Grocery Shelves (High-Res Packaging)',
+            position: [0.45, 0.35, -3.40],
+            rotation: [0, -90, 0],
+            description: 'Direct view of packaged grocery goods with crisp labels and price tags from an optimal viewing distance',
+        },
+    ],
+
+    metadata: {
+        splatFormat: 'SOG v3 (3 SH Bands)',
+        gaussianCount: 486031,
+        coordinateConvention: 'Precision-Leveled Ground Plane (Y-up, aisle -Z)',
+        captureSource: 'Supermarket 15k-step Gradient 3DGS',
+        graphicsEngine: 'PlayCanvas 2.x WebGL/WebGPU',
+        fidelity: 'High-Fidelity Leveled Digital Twin (60 FPS)',
+    },
+};
+
+/**
+ * Demo Room Digital Twin (Room-001)
  */
 export const defaultSceneConfig: SceneConfig = {
     id: 'room-001',
     name: 'Primary Spatial Twin (Native Octree LOD)',
-    asset: '/room_fast.sog', // Untouched monolithic fallback
-    lodAsset: '/room_lod/lod-meta.json', // Native PlayCanvas octree LOD manifest
-    useLod: true, // Toggle between native streaming LOD and monolithic SOG
+    asset: '/room_fast.sog',
+    lodAsset: '/room_lod/lod-meta.json',
+    useLod: true,
     splatBudget: 400000,
     splatBudgetMode: 'limit',
 
-    // Verified transform values aligning room floor and leveling coordinate axes
     transform: {
         position: [0.46, -0.88, -0.49],
         rotation: [-57.22, -13.40, 24.30],
         scale: [1, 1, 1],
     },
 
-    // Initial camera position and target framing the reconstructed scene
     camera: {
         position: [0, 0.2, 1.8],
         lookAt: [0.36, -0.46, -0.05],
@@ -30,26 +104,21 @@ export const defaultSceneConfig: SceneConfig = {
         clearColor: '#0c0d12',
     },
 
-    // First-person indoor spatial navigation parameters
     navigation: {
         mode: 'first-person',
-        // In the aligned coordinate frame, the reconstructed floor sits at ~ Y = -1.4m.
-        // A world Y elevation of 0.2m precisely corresponds to a 1.6m human eye-level walking height.
         eyeHeight: 0.2,
-        movementSpeed: 2.2, // Walking speed in meters/second
-        fastMovementSpeed: 4.2, // Sprint speed with Shift in meters/second
-        lookSensitivity: 0.14, // Look sensitivity in degrees per mouse pixel
-        pitchRange: [-85, 85], // Pitch clamp to prevent gimbal roll
-        boundaryMargin: 0.20, // Snug perimeter margin (meters)
+        movementSpeed: 0.15,
+        fastMovementSpeed: 0.38,
+        lookSensitivity: 0.14,
+        pitchRange: [-85, 85],
+        boundaryMargin: 0.20,
     },
 
-    // Physical spatial bounding envelope expanded for unobstructed room walking
     bounds: {
         min: [-3.20, -2.96, -2.80],
         max: [3.20, 2.73, 3.40],
     },
 
-    // Key interest points inside the digital twin
     waypoints: [
         {
             id: 'wp-center',
@@ -60,7 +129,6 @@ export const defaultSceneConfig: SceneConfig = {
         },
     ],
 
-    // Metadata describing capture pipeline and asset characteristics
     metadata: {
         splatFormat: 'SOG v3 (3 SH Bands)',
         gaussianCount: 476000,

@@ -56,6 +56,9 @@ checkpoints/
 data/raw/
 data/processed/
 data/reconstructions/
+data/experiments/
+data/room-001-copy/
+data/test_room001_subset/
 eyeful-colmap/
 eyeful-package/
 eyeful-splat/
@@ -65,6 +68,19 @@ runs/
 outputs/
 live-sessions/
 external/
+scratch/
+
+# Test renders and temporary debug screenshots
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.mp4
+*.backup
+
+# Intermediate experimental SOG assets
+frontend/namma-space/public/supermarket_*.sog
+!frontend/namma-space/public/supermarket_hq_leveled.sog
 
 # iOS / Xcode
 DerivedData/

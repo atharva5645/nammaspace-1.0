@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { defaultSceneConfig } from './config/sceneConfig';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { supermarketSceneConfig, defaultSceneConfig } from './config/sceneConfig';
 import { ViewerCanvas } from './components/ViewerCanvas';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ErrorScreen } from './components/ErrorScreen';
@@ -7,13 +7,45 @@ import { NavigationBar } from './components/NavigationBar';
 import { RoomInfoCard } from './components/RoomInfoCard';
 
 export const App: React.FC = () => {
-    const [scene] = useState(defaultSceneConfig);
+    // Read scene parameter from URL if provided, otherwise default to supermarket-001
+    const [activeSceneId, setActiveSceneId] = useState<string>(() => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const sceneParam = params.get('scene');
+            if (sceneParam === 'room-001' || sceneParam === 'supermarket-001') {
+                return sceneParam;
+            }
+        }
+        return 'supermarket-001';
+    });
+
+    const scene = useMemo(() => {
+        if (activeSceneId === 'room-001') {
+            return defaultSceneConfig;
+        }
+        return supermarketSceneConfig;
+    }, [activeSceneId]);
+
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
     const [progress, setProgress] = useState<number | null>(null);
     const [retryKey, setRetryKey] = useState<number>(0);
     const [isInfoOpen, setIsInfoOpen] = useState<boolean>(false);
     const [isPointerLocked, setIsPointerLocked] = useState<boolean>(false);
+
+    const handleSelectScene = useCallback((newId: string) => {
+        if (newId !== activeSceneId) {
+            setIsLoading(true);
+            setProgress(null);
+            setError(null);
+            setActiveSceneId(newId);
+            setRetryKey((prev) => prev + 1);
+
+            const url = new URL(window.location.href);
+            url.searchParams.set('scene', newId);
+            window.history.pushState({}, '', url.toString());
+        }
+    }, [activeSceneId]);
 
     useEffect(() => {
         const handlePointerLockEvent = (e: Event) => {
@@ -78,7 +110,7 @@ export const App: React.FC = () => {
         <main className="ns-app-root">
             {/* PlayCanvas Spatial Digital Twin Viewer */}
             <ViewerCanvas
-                key={retryKey}
+                key={`${activeSceneId}-${retryKey}`}
                 scene={scene}
                 onLoaded={handleLoaded}
                 onError={handleError}
@@ -90,6 +122,8 @@ export const App: React.FC = () => {
                 onReset={handleReset}
                 onToggleInfo={toggleInfo}
                 isInfoOpen={isInfoOpen}
+                currentSceneId={activeSceneId}
+                onSelectScene={handleSelectScene}
             />
 
             {/* Room Information drawer */}

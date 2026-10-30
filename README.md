@@ -86,16 +86,17 @@ npm run dev
 ```
 
 Open `http://localhost:5173` in your browser.
-- **Orbit Camera**: Click and drag with mouse or touch.
+- **First-Person Walking**: Click the canvas to enter FPS look. Use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to walk, <kbd>Space</kbd>/<kbd>E</kbd> to fly up, and <kbd>C</kbd>/<kbd>Q</kbd> to fly down. Hold <kbd>Shift</kbd> to sprint.
+- **Speed Tuning**: Press <kbd>[</kbd> to slow down or <kbd>]</kbd> to speed up in real-time.
 - **PlayCanvas Inspector**: Press the backquote key (<kbd>`</kbd>) to toggle the real-time hierarchy, asset inspector, performance graphs, and material settings.
 - **Controls**: Press <kbd>F9</kbd> to pause rendering, and <kbd>F10</kbd> to advance frame-by-frame.
 
 #### Viewing Custom Splats
 1. Export or download your `.sog` or `.ply` file.
-2. Place it in `namma-space/public/` or host it via a remote URL.
-3. Update scene presets or default splat URL in [`namma-space/src/types/scene.ts`](./namma-space/src/types/scene.ts) and [`namma-space/src/App.tsx`](./namma-space/src/App.tsx):
+2. Place it in `frontend/namma-space/public/` or host it via a remote URL.
+3. Update scene presets or default splat URL in [`frontend/namma-space/src/config/sceneConfig.ts`](./frontend/namma-space/src/config/sceneConfig.ts):
    ```tsx
-   const SPLAT_URL = '/my-custom-splat.sog';
+   export const supermarketSceneConfig = ...
    ```
 
 ---

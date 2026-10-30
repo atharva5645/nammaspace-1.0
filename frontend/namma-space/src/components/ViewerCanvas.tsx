@@ -229,7 +229,9 @@ export const ViewerCanvas: React.FC<ViewerCanvasProps> = ({
         >
             <Application
                 deviceTypes={[DEVICETYPE_WEBGPU, DEVICETYPE_WEBGL2]}
-                graphicsDeviceOptions={{ antialias: false, powerPreference: 'high-performance' }}
+                // Splats are alpha-blended point sprites; without MSAA their edges
+                // alias and read as "soft"/shimmery detail loss at any distance.
+                graphicsDeviceOptions={{ antialias: true, powerPreference: 'high-performance' }}
                 className="ns-playcanvas-canvas"
             >
                 {/* Ensure full 4K / Retina viewport pixel density */}
@@ -249,6 +251,10 @@ export const ViewerCanvas: React.FC<ViewerCanvasProps> = ({
                     <Camera
                         clearColor={scene.camera.clearColor || '#0c0d12'}
                         fov={scene.camera.fov}
+                        // 10 cm personal-space clip: 3DGS floaters often hover
+                        // right on the lens and read as white/dark rings.
+                        nearClip={0.1}
+                        farClip={1000}
                     />
                     <Script
                         script={FirstPersonControls}

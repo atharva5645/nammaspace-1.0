@@ -1,0 +1,109 @@
+# NammaSpace Filter Pipeline Configuration
+# Independent module configuration for Capture Preprocessing and 3DGS Splat Transformation.
+
+name: "nammaspace-filter-pipeline"
+version: "1.0.0"
+
+# -----------------------------------------------------------------------------
+# Stage 1: Phone-Video & Image Capture Preprocessing
+# -----------------------------------------------------------------------------
+capture:
+  # Frame extraction rate from input video files (frames per second).
+  # Set to null or 0 to extract all native video frames.
+  extraction_fps: 2.0
+
+  # Laplacian variance threshold for blur detection.
+  # Frames with laplacian_variance < min_laplacian_var are flagged as blur_detected.
+  # Typical range: 60.0 (permissive) to 120.0 (strict indoor).
+  min_laplacian_var: 80.0
+
+  # Minimum average grayscale luminance [0-255].
+  # Frames with mean_luminance < min_mean_luminance are dropped as under_exposed.
+  min_mean_luminance: 35.0
+
+  # Maximum average grayscale luminance [0-255].
+  # Frames with mean_luminance > max_mean_luminance are dropped as over_exposed.
+  max_mean_luminance: 225.0
+
+  # Maximum allowed ratio of clipped shadow pixels in the darkest range [0, 15].
+  # Frames with shadow_ratio > max_shadow_clip_ratio are dropped as under_exposed.
+  max_shadow_clip_ratio: 0.35
+
+  # Maximum allowed ratio of clipped highlight pixels in the brightest range [240, 255].
+  # Frames with highlight_ratio > max_highlight_clip_ratio are dropped as over_exposed.
+  max_highlight_clip_ratio: 0.35
+
+  # Near-duplicate similarity threshold [0.0 - 1.0] against the previous kept frame.
+  # Evaluated as an ensemble of downsampled spatial intensity MSE + 3-channel histogram correlation.
+  # Frames with similarity > near_duplicate_threshold are dropped as near_duplicate.
+  near_duplicate_threshold: 0.95
+
+  # Optional cap on total output frames.
+  # If the count of clean frames exceeds this, an even linspace decimation selects max_frames_cap.
+  # Set to null for unlimited.
+  max_frames_cap: null
+
+  # Image export format and quality for stage1/ directory.
+  output_image_format: "jpg"
+  jpeg_quality: 95
+
+  # Optional explicit FFmpeg binary path (null for auto-detection / cv2 backend).
+  ffmpeg_binary: null
+
+# -----------------------------------------------------------------------------
+# Stage 2: 3DGS PLY Cleaning (Numerical & Statistical In-Memory Filtering)
+# -----------------------------------------------------------------------------
+stage1:
+  # Cull non-finite (NaN / Inf) coordinates, scales, rotations, and opacities.
+  remove_nan_inf: true
+
+  # Bounding box filter [min_x, min_y, min_z] and [max_x, max_y, max_z] in meters.
+  # Set to null to disable spatial volume clamping.
+  bbox_min: null
+  bbox_max: null
+
+  # Statistical radial outlier filter from scene centroid (d > mean + k * std).
+  statistical_filter_enabled: false
+  statistical_std_ratio: 3.0
+
+  # Maximum allowable physical scale (exp(scale)). Culls giant translucent billboard floaters.
+  max_scale_exp: 10.0
+
+  # Minimum opacity in raw logit space (-5.0 corresponds to ~0.0067 linear opacity).
+  min_opacity_raw: -5.0
+
+  # Optional explicit linear opacity threshold in [0, 1].
+  min_opacity_linear: null
+
+# -----------------------------------------------------------------------------
+# Stage 3: splat-transform Native Tooling Integration
+# -----------------------------------------------------------------------------
+stage2:
+  # Enable Stage 3 execution via local @playcanvas/splat-transform CLI.
+  enabled: true
+
+  # Floater filter voxel spec: [size, op, min] (e.g. "0.05,0.1,0.004"). Null to disable.
+  filter_floaters: null
+
+  # Connected cluster filter spec: [res, op, min] (e.g. "1.0,0.999,0.1"). Null to disable.
+  filter_cluster: null
+
+  # Seed position [x, y, z] for cluster filtering.
+  seed_pos: null
+
+  # Spherical harmonic band truncation (0, 1, 2, or 3). Null to preserve all bands.
+  filter_harmonics: null
+
+  # Reorder Gaussians using Morton code (Z-order curve) for cache-coherent GPU streaming.
+  morton_order: true
+
+  # Output formats to emit in the target directory.
+  output_ply: true
+  output_sog: true
+
+  # Spherical harmonic compression iterations for .sog output.
+  sh_iterations: 10
+
+  # Path to local splat-transform cli.mjs (auto-located if null).
+  splat_transform_cli: null
+  node_binary: "node"

@@ -40,13 +40,14 @@ export class FirstPersonControls extends Script {
     public initialRotation: Vec3Tuple = [0, 0, 0];
     public lookAtTarget?: Vec3Tuple;
 
-    // Navigation configuration values
+    // Navigation configuration values (tuned for calm, precise surface exploration)
     public eyeHeight = 0.2;
-    public movementSpeed = 2.2;
-    public fastMovementSpeed = 4.2;
-    public lookSensitivity = 0.14;
+    public movementSpeed = 0.10; // Gentle, steady exploration speed
+    public fastMovementSpeed = 0.28; // Controlled sprint with Shift
+    public lookSensitivity = 0.10;
     public pitchRange: [number, number] = [-85, 85];
     public boundaryMargin = 0.25;
+    public speedMultiplier = 1.0;
 
     // Orientation state in degrees
     private yaw = 0;
@@ -56,7 +57,9 @@ export class FirstPersonControls extends Script {
 
     // Movement velocity state for smooth inertia
     private velX = 0;
+    private velY = 0;
     private velZ = 0;
+    private currentY = 0;
 
     // Input state
     private isLocked = false;
@@ -80,9 +83,10 @@ export class FirstPersonControls extends Script {
     initialize() {
         this.applyConfig();
 
-        // Position camera firmly at human eye height
+        // Position camera firmly at human eye height or configured elevation
         const startPos = this.initialPosition;
-        this.entity.setPosition(startPos[0], this.eyeHeight, startPos[2]);
+        this.currentY = typeof startPos[1] === 'number' ? startPos[1] : this.eyeHeight;
+        this.entity.setPosition(startPos[0], this.currentY, startPos[2]);
 
         // Derive initial orientation from lookAtTarget if configured, otherwise use initialRotation
         if (this.lookAtTarget) {
@@ -142,6 +146,13 @@ export class FirstPersonControls extends Script {
         if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
 
         this.keys.add(e.code);
+
+        // Runtime speed tuning: [ or - slows down, ] or + speeds up
+        if (e.code === 'BracketLeft' || e.code === 'Minus') {
+            this.speedMultiplier = Math.max(0.15, this.speedMultiplier * 0.75);
+        } else if (e.code === 'BracketRight' || e.code === 'Equal') {
+            this.speedMultiplier = Math.min(3.0, this.speedMultiplier * 1.35);
+        }
 
         // If Escape is pressed, release pointer lock
         if (e.code === 'Escape' && document.pointerLockElement) {
@@ -218,7 +229,9 @@ export class FirstPersonControls extends Script {
         this.pendingDx = 0;
         this.pendingDy = 0;
         this.velX = 0;
+        this.velY = 0;
         this.velZ = 0;
+        this.currentY = typeof targetPos[1] === 'number' ? targetPos[1] : this.eyeHeight;
 
         if (typeof yaw === 'number' && typeof pitch === 'number') {
             this.yaw = yaw;
@@ -232,7 +245,7 @@ export class FirstPersonControls extends Script {
             this.pitch = this.initialPitch;
         }
 
-        this.entity.setPosition(targetPos[0], this.eyeHeight, targetPos[2]);
+        this.entity.setPosition(targetPos[0], this.currentY, targetPos[2]);
         this.entity.setEulerAngles(this.pitch, this.yaw, 0);
         this.keys.clear();
     }
@@ -257,10 +270,19 @@ export class FirstPersonControls extends Script {
         const isBackward = this.keys.has('KeyS') || this.keys.has('ArrowDown');
         const isLeft = this.keys.has('KeyA') || this.keys.has('ArrowLeft');
         const isRight = this.keys.has('KeyD') || this.keys.has('ArrowRight');
+        const isUp = this.keys.has('Space') || this.keys.has('KeyE');
+        const isDown = this.keys.has('KeyC') || this.keys.has('KeyQ');
 
-        // Determine walk vs sprint speed
+        // Determine walk vs sprint speed, dynamically evaluating current scene navigation config
+        const baseSpeed = typeof this.navigation?.movementSpeed === 'number'
+            ? this.navigation.movementSpeed
+            : this.movementSpeed;
+        const sprintSpeed = typeof this.navigation?.fastMovementSpeed === 'number'
+            ? this.navigation.fastMovementSpeed
+            : this.fastMovementSpeed;
+
         const isShift = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
-        const targetSpeed = isShift ? this.fastMovementSpeed : this.movementSpeed;
+        const targetSpeed = (isShift ? sprintSpeed : baseSpeed) * this.speedMultiplier;
 
         // Project horizontal forward and right vectors
         const forward = this.entity.forward;
@@ -303,22 +325,30 @@ export class FirstPersonControls extends Script {
             targetVelZ = (inputZ / inputLen) * targetSpeed;
         }
 
+        let targetVelY = 0;
+        if (isUp) targetVelY += targetSpeed * 0.75;
+        if (isDown) targetVelY -= targetSpeed * 0.75;
+
         // 3. Smooth velocity acceleration and deceleration curves
-        const accelRate = (inputLen > 0) ? 14 : 18;
+        const accelRate = (inputLen > 0 || isUp || isDown) ? 8 : 12;
         const lerpFactor = Math.min(1, accelRate * clampedDt);
         this.velX += (targetVelX - this.velX) * lerpFactor;
+        this.velY += (targetVelY - this.velY) * lerpFactor;
         this.velZ += (targetVelZ - this.velZ) * lerpFactor;
 
-        const currentSpeed = Math.hypot(this.velX, this.velZ);
+        const currentSpeed = Math.hypot(this.velX, this.velY, this.velZ);
         if (currentSpeed > 0.005) {
             const currentPos = this.entity.getPosition();
             let nextX = currentPos.x + this.velX * clampedDt;
+            let nextY = (this.currentY || currentPos.y) + this.velY * clampedDt;
             let nextZ = currentPos.z + this.velZ * clampedDt;
 
             // 4. Independent Axis Sliding Collision with Room Boundaries
             if (this.bounds) {
                 const minX = this.bounds.min[0] + this.boundaryMargin;
                 const maxX = this.bounds.max[0] - this.boundaryMargin;
+                const minY = this.bounds.min[1] + this.boundaryMargin;
+                const maxY = this.bounds.max[1] - this.boundaryMargin;
                 const minZ = this.bounds.min[2] + this.boundaryMargin;
                 const maxZ = this.bounds.max[2] - this.boundaryMargin;
 
@@ -331,6 +361,14 @@ export class FirstPersonControls extends Script {
                     this.velX = 0;
                 }
 
+                if (nextY < minY) {
+                    nextY = minY;
+                    this.velY = 0;
+                } else if (nextY > maxY) {
+                    nextY = maxY;
+                    this.velY = 0;
+                }
+
                 if (nextZ < minZ) {
                     nextZ = minZ;
                     this.velZ = 0;
@@ -340,14 +378,8 @@ export class FirstPersonControls extends Script {
                 }
             }
 
-            // Apply position with strict eye-height elevation
-            this.entity.setPosition(nextX, this.eyeHeight, nextZ);
-        } else {
-            // Strictly maintain eye elevation when standing still
-            const pos = this.entity.getPosition();
-            if (Math.abs(pos.y - this.eyeHeight) > 0.001) {
-                this.entity.setPosition(pos.x, this.eyeHeight, pos.z);
-            }
+            this.currentY = nextY;
+            this.entity.setPosition(nextX, this.currentY, nextZ);
         }
     }
 

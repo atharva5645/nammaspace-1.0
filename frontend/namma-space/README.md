@@ -14,7 +14,7 @@ Part of the [NammaSpace](../README.md) spatial computing ecosystem.
 - **Modern React 19 Architecture**: Declarative 3D entity hierarchy via `@playcanvas/react`.
 - **Fast Vite Toolchain**: Instant hot-module replacement (HMR) and optimized static asset bundling.
 - **Optimized Rendering**: Fragment-bound splat rendering with antialiasing tuning for smooth 60+ FPS performance on mobile and desktop devices.
-- **Interactive Orbit Camera**: Built-in orbit, pan, and zoom controls.
+- **First-Person & Rail Navigation**: Walk down retail aisles with smooth WASD/Space/C controls and runtime speed adjustment (`[` / `]`).
 - **Embedded Inspector**: On-the-fly debugging of the scene graph, shaders, textures, and assets via `@playcanvas/inspector`.
 
 ---

@@ -1,0 +1,56 @@
+[
+  {
+    "id": "room-001",
+    "name": "Demo Room (Baseline 458p)",
+    "type": "indoor",
+    "status": "active",
+    "manifestUrl": "/scenes/room-001/manifest.json",
+    "thumbnail": "/favicon.svg",
+    "description": "Baseline spatial twin with verified COLMAP SfM, 687x458 resolution, and native PlayCanvas octree LOD streaming."
+  },
+  {
+    "id": "room-001-1k",
+    "name": "Demo Room (1K Raw Capture)",
+    "type": "indoor",
+    "status": "active",
+    "manifestUrl": "/scenes/room-001-1k/manifest.json",
+    "thumbnail": "/favicon.svg",
+    "description": "High-resolution spatial twin reconstructed from un-downscaled 1082x723 raw capture with SSIM structural loss."
+  },
+  {
+    "id": "lab-002",
+    "name": "Spatial Robotics Laboratory",
+    "type": "indoor",
+    "status": "planned",
+    "manifestUrl": null,
+    "thumbnail": "/favicon.svg",
+    "description": "Robotics testbed with overhead motion capture and precision sensor calibration benches."
+  },
+  {
+    "id": "classroom-003",
+    "name": "Smart Lecture Hall",
+    "type": "indoor",
+    "status": "planned",
+    "manifestUrl": null,
+    "thumbnail": "/favicon.svg",
+    "description": "Tiered spatial classroom with multi-screen projection mapping and interactive seating."
+  },
+  {
+    "id": "warehouse-004",
+    "name": "Logistics Warehouse",
+    "type": "indoor",
+    "status": "planned",
+    "manifestUrl": null,
+    "thumbnail": "/favicon.svg",
+    "description": "High-bay storage facility with spatial racking, aisles, and AGV charging hubs."
+  },
+  {
+    "id": "college-005",
+    "name": "College Academic Block",
+    "type": "hybrid",
+    "status": "planned",
+    "manifestUrl": null,
+    "thumbnail": "/favicon.svg",
+    "description": "Large-scale institutional campus building connecting multi-level atriums and exterior courtyards."
+  }
+]

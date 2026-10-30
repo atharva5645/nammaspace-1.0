@@ -1,0 +1,93 @@
+{
+  "id": "room-001",
+  "name": "Demo Room",
+  "type": "indoor",
+  "description": "Primary spatial digital twin of Room-01 reconstructed via COLMAP and gsplat with native octree LOD streaming.",
+  "version": "1.0.0",
+
+  "capture": {
+    "imageCount": 504,
+    "resolution": "1082x723 (Raw) / 687x458 (Package)",
+    "rawResolution": "1082x723",
+    "packageResolution": "687x458",
+    "cameraCount": 14,
+    "sensor": "Multi-Camera RGB Rig",
+    "coverage": "Single-room perimeter (Doorway unobserved beyond portal)",
+    "notes": "Doorway opening has no external geometry; perimeter bounds enforced to avoid floaters."
+  },
+
+  "reconstruction": {
+    "method": "COLMAP + Gaussian Splatting (gsplat)",
+    "registeredImages": 504,
+    "sparsePoints": 226533,
+    "gaussians": 1000000,
+    "shDegree": 3,
+    "iterations": 15000,
+    "trainingFramework": "gsplat v1.5.3 (MCMC Strategy) + CUDA 12.8",
+    "bounds": {
+      "min": [-8.486, -8.200, -8.286],
+      "max": [9.560, 7.600, 8.611]
+    },
+    "dimensions": [18.046, 15.800, 16.897]
+  },
+
+  "rendering": {
+    "lodEnabled": true,
+    "splatBudget": 400000,
+    "splatBudgetMode": "limit",
+    "initialDpr": 1.5,
+    "preferredApi": ["WebGPU", "WebGL2"]
+  },
+
+  "assets": {
+    "fallback": "/room_fast.sog",
+    "hq": "/room_hq.sog",
+    "lod": "/room_lod/lod-meta.json",
+    "thumbnail": "/favicon.svg"
+  },
+
+  "transform": {
+    "position": [0.46, -0.88, -0.49],
+    "rotation": [-57.22, -13.40, 24.30],
+    "scale": [1, 1, 1]
+  },
+
+  "camera": {
+    "position": [0, 0.2, 1.8],
+    "lookAt": [0.36, -0.46, -0.05],
+    "fov": 75,
+    "clearColor": "#0c0d12"
+  },
+
+  "navigation": {
+    "mode": "first-person",
+    "eyeHeight": 0.2,
+    "movementSpeed": 2.2,
+    "fastMovementSpeed": 4.2,
+    "lookSensitivity": 0.14,
+    "pitchRange": [-85, 85],
+    "boundaryMargin": 0.20
+  },
+
+  "bounds": {
+    "min": [-3.20, -2.96, -2.80],
+    "max": [3.20, 2.73, 3.40]
+  },
+
+  "waypoints": [
+    {
+      "id": "wp-overview",
+      "name": "Room Overview",
+      "position": [0, 0.2, 1.8],
+      "rotation": [0, 0, 0],
+      "description": "Central perspective of the reconstructed room framing TV display and desk"
+    },
+    {
+      "id": "wp-workstation",
+      "name": "Workstation View",
+      "position": [0.8, 0.2, 0.5],
+      "rotation": [0, -45, 0],
+      "description": "Close perspective facing the TV monitor and presentation setup"
+    }
+  ]
+}
