@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nammaspace.example/contracts/spatial-job-result.v1.schema.json",
+  "title": "NammaSpace Spatial Job Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["result_version", "job_id", "job_type", "status", "output", "artifacts"],
+  "properties": {
+    "result_version": { "const": "spatial-result.v1" },
+    "job_id": { "type": "string", "format": "uuid" },
+    "job_type": { "enum": ["capture_preflight"] },
+    "status": { "const": "succeeded" },
+    "output": { "type": "object" },
+    "artifacts": { "type": "array", "items": { "type": "object" } }
+  }
+}

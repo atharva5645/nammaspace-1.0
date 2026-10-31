@@ -3,6 +3,8 @@
 > **End-to-End 3D Gaussian Splatting (3DGS) & Spatial Computing Ecosystem**  
 > From physical world capture to high-performance interactive web visualization.
 
+> **Product restructure in progress:** NammaSpace is moving toward a homeowner/architect spatial modelling workbench with guided capture and three reviewable outputs: metric wireframe, solid geometry, then colors and object placeholders. The default frontend now opens the intake preview; the current PlayCanvas viewer remains available as a demo. See [`TODO.md`](./TODO.md), [`docs/SPATIAL_RESTRUCTURE_PLAN.md`](./docs/SPATIAL_RESTRUCTURE_PLAN.md), and [`spatial-engine/README.md`](./spatial-engine/README.md) for current scope and implementation status. The intake currently stages files in browser memory and does not upload or process them.
+
 ---
 
 ## 🌌 Overview

@@ -1,15 +1,25 @@
 import React, { useState, useEffect } from 'react';
 
 interface NavigationBarProps {
+    onBackToWorkbench?: () => void;
+    onToggleEditor?: () => void;
+    isEditorOpen?: boolean;
     onReset?: () => void;
     onToggleInfo?: () => void;
     isInfoOpen?: boolean;
+    currentSceneId?: string;
+    onSelectScene?: (sceneId: string) => void;
 }
 
 export const NavigationBar: React.FC<NavigationBarProps> = ({
+    onBackToWorkbench,
+    onToggleEditor,
+    isEditorOpen = false,
     onReset,
     onToggleInfo,
     isInfoOpen = false,
+    currentSceneId = 'room-001',
+    onSelectScene,
 }) => {
     const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
@@ -48,12 +58,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({
     };
 
     const handleSceneChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-        const value = event.target.value;
-        if (value === 'supermarket-001') {
-            window.location.search = '?scene=supermarket-001';
-        } else if (value === 'room-001') {
-            window.location.search = '?scene=room-001';
-        }
+        onSelectScene?.(event.target.value);
     };
 
     return (
@@ -69,6 +74,35 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({
 
             {/* Subtle top-right controls */}
             <div className="ns-hud-actions">
+                {onToggleEditor && (
+                    <button
+                        type="button"
+                        className={`ns-editor-mode-btn ${isEditorOpen ? 'active' : ''}`}
+                        onClick={onToggleEditor}
+                        aria-pressed={isEditorOpen}
+                        aria-label={isEditorOpen ? 'Close Editor Mode' : 'Open Editor Mode'}
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="m15 5 4 4M4 20l4.5-1 10-10a2.12 2.12 0 0 0-3-3l-10 10L4 20Z" />
+                            <path d="M13 7 17 11" />
+                        </svg>
+                        <span>{isEditorOpen ? 'Editing' : 'Editor Mode'}</span>
+                    </button>
+                )}
+                {onBackToWorkbench && (
+                    <button
+                        type="button"
+                        className="ns-hud-btn ns-back-to-workbench"
+                        onClick={onBackToWorkbench}
+                        title="Back to project setup"
+                        aria-label="Back to project setup"
+                    >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M19 12H5" />
+                            <path d="m12 19-7-7 7-7" />
+                        </svg>
+                    </button>
+                )}
                 {onReset && (
                     <button
                         type="button"
@@ -123,10 +157,9 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({
                     <select
                         className="ns-hud-select"
                         onChange={handleSceneChange}
-                        defaultValue=""
+                        value={currentSceneId}
                         aria-label="Select scene"
                     >
-                        <option value="" disabled>🏠 Scene</option>
                         <option value="supermarket-001">Supermarket Aisle</option>
                         <option value="room-001">Room-001 Hall</option>
                     </select>

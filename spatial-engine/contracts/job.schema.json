@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nammaspace.example/contracts/spatial-job.v1.schema.json",
+  "title": "NammaSpace Spatial Job v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "job_id", "job_type", "tenant_id", "project_id", "input"],
+  "properties": {
+    "contract_version": { "const": "spatial-job.v1" },
+    "job_id": { "type": "string", "format": "uuid" },
+    "job_type": { "enum": ["capture_preflight"] },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "project_id": { "type": "string", "format": "uuid" },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["snapshot_version", "project", "evidence"],
+      "properties": {
+        "snapshot_version": { "const": "capture-input.v1" },
+        "project": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["project_name", "room_name", "units", "known_distance", "anchor_name", "anchor_start_label", "anchor_end_label", "anchor_view_side", "anchor_source", "anchor_confidence", "room_length", "room_width", "openings", "ceiling_height", "sop_version", "sop_acknowledgments"],
+          "properties": {
+            "project_name": { "type": "string" },
+            "room_name": { "type": "string" },
+            "units": { "enum": ["m", "ft"] },
+            "known_distance": { "type": "number", "exclusiveMinimum": 0 },
+            "anchor_name": { "type": "string" },
+            "anchor_start_label": { "type": "string" },
+            "anchor_end_label": { "type": "string" },
+            "anchor_view_side": { "enum": ["side1", "side2", "side3", "side4"] },
+            "anchor_source": { "enum": ["tape", "laser", "floor_plan", "sensor"] },
+            "anchor_confidence": { "enum": ["high", "medium", "low"] },
+            "anchor_start_pick": { "$ref": "#/$defs/anchorPixelPick" },
+            "anchor_end_pick": { "$ref": "#/$defs/anchorPixelPick" },
+            "room_length": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+            "room_width": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+            "openings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "label", "kind", "side", "width", "height", "offset_from_corner"],
+                "properties": {
+                  "id": { "type": "string" },
+                  "label": { "type": "string" },
+                  "kind": { "enum": ["door", "window", "other"] },
+                  "side": { "enum": ["side1", "side2", "side3", "side4"] },
+                  "width": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+                  "height": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+                  "offset_from_corner": { "type": ["number", "null"], "minimum": 0 }
+                }
+              }
+            },
+            "ceiling_height": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+            "sop_version": { "type": "string" },
+            "sop_acknowledgments": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["upload_id", "sha256", "category", "side", "content_type", "storage_key"],
+            "properties": {
+              "upload_id": { "type": "string", "format": "uuid" },
+              "sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+              "category": { "enum": ["room_image", "extra_image", "video", "floor_plan", "sensor_data"] },
+              "side": { "type": ["string", "null"], "enum": ["side1", "side2", "side3", "side4", null] },
+              "content_type": { "type": "string" },
+              "storage_key": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "anchorPixelPick": {
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["image_filename", "x_normalized", "y_normalized"],
+          "properties": {
+            "image_filename": { "type": "string", "minLength": 1 },
+            "x_normalized": { "type": "number", "minimum": 0, "maximum": 1 },
+            "y_normalized": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        }
+      ]
+    }
+  }
+}

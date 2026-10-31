@@ -69,6 +69,8 @@ outputs/
 live-sessions/
 external/
 scratch/
+tools/colmap-*/
+tools/downloads/
 
 # Test renders and temporary debug screenshots
 *.png
@@ -96,3 +98,8 @@ DerivedData/
 Thumbs.db
 .idea/
 .vscode/
+var/
+*.sqlite
+*.sqlite3
+*.db
+

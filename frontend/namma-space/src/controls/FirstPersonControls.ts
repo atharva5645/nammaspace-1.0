@@ -167,7 +167,8 @@ export class FirstPersonControls extends Script {
     private onMouseDown(e: MouseEvent) {
         // Ignore clicks on HUD buttons or Drawer cards
         if ((e.target as HTMLElement)?.closest('.ns-hud-header') ||
-            (e.target as HTMLElement)?.closest('.ns-info-card')) {
+            (e.target as HTMLElement)?.closest('.ns-info-card') ||
+            (e.target as HTMLElement)?.closest('.ns-editor-panel')) {
             return;
         }
 

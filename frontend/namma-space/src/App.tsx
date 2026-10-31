@@ -5,9 +5,15 @@ import { LoadingScreen } from './components/LoadingScreen';
 import { ErrorScreen } from './components/ErrorScreen';
 import { NavigationBar } from './components/NavigationBar';
 import { RoomInfoCard } from './components/RoomInfoCard';
+import { EditorPanel } from './components/EditorPanel';
+import type { SceneTransform } from './types/scene';
 
-export const App: React.FC = () => {
-    // Read scene parameter from URL if provided, otherwise default to supermarket-001
+export interface ExistingViewerProps {
+    onBackToWorkbench?: () => void;
+}
+
+export const App: React.FC<ExistingViewerProps> = ({ onBackToWorkbench }) => {
+    // Read an explicit scene parameter; otherwise open the Hall 001 demo scene.
     const [activeSceneId, setActiveSceneId] = useState<string>(() => {
         if (typeof window !== 'undefined') {
             const params = new URLSearchParams(window.location.search);
@@ -16,7 +22,7 @@ export const App: React.FC = () => {
                 return sceneParam;
             }
         }
-        return 'supermarket-001';
+        return 'room-001';
     });
 
     const scene = useMemo(() => {
@@ -25,6 +31,12 @@ export const App: React.FC = () => {
         }
         return supermarketSceneConfig;
     }, [activeSceneId]);
+    const [editorTransform, setEditorTransform] = useState<SceneTransform | null>(null);
+    const [isEditorOpen, setIsEditorOpen] = useState(false);
+    const displayedScene = useMemo(
+        () => editorTransform ? { ...scene, transform: editorTransform } : scene,
+        [scene, editorTransform]
+    );
 
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
@@ -39,6 +51,8 @@ export const App: React.FC = () => {
             setProgress(null);
             setError(null);
             setActiveSceneId(newId);
+            setEditorTransform(null);
+            setIsEditorOpen(false);
             setRetryKey((prev) => prev + 1);
 
             const url = new URL(window.location.href);
@@ -88,6 +102,12 @@ export const App: React.FC = () => {
         setIsInfoOpen(false);
     }, []);
 
+    const toggleEditor = useCallback(() => {
+        if (!isEditorOpen && document.pointerLockElement) document.exitPointerLock();
+        setIsEditorOpen((open) => !open);
+        setIsInfoOpen(false);
+    }, [isEditorOpen]);
+
     const handleReset = useCallback(() => {
         window.dispatchEvent(
             new CustomEvent('nammaspace:reset', {
@@ -111,7 +131,7 @@ export const App: React.FC = () => {
             {/* PlayCanvas Spatial Digital Twin Viewer */}
             <ViewerCanvas
                 key={`${activeSceneId}-${retryKey}`}
-                scene={scene}
+                scene={displayedScene}
                 onLoaded={handleLoaded}
                 onError={handleError}
                 onProgress={handleProgress}
@@ -119,6 +139,9 @@ export const App: React.FC = () => {
 
             {/* Minimal HUD overlay */}
             <NavigationBar
+                onBackToWorkbench={onBackToWorkbench}
+                onToggleEditor={toggleEditor}
+                isEditorOpen={isEditorOpen}
                 onReset={handleReset}
                 onToggleInfo={toggleInfo}
                 isInfoOpen={isInfoOpen}
@@ -132,6 +155,16 @@ export const App: React.FC = () => {
                 isOpen={isInfoOpen}
                 onClose={closeInfo}
             />
+
+            {isEditorOpen && (
+                <EditorPanel
+                    scene={scene}
+                    transform={displayedScene.transform}
+                    onTransformChange={setEditorTransform}
+                    onReset={() => setEditorTransform(null)}
+                    onClose={() => setIsEditorOpen(false)}
+                />
+            )}
 
             {/* Subtle "Click to explore" navigation hint */}
             {!isLoading && !error && !isPointerLocked && (

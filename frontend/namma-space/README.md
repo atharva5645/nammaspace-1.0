@@ -1,8 +1,12 @@
-# NammaSpace Web Viewer (`namma-space`)
+# NammaSpace Spatial Workbench (`namma-space`)
 
-> **High-performance 3D Gaussian Splatting (3DGS) web viewer powered by React 19, TypeScript, Vite, and PlayCanvas React.**
+> **Browser-based spatial workbench preview powered by React 19, TypeScript, Vite, and PlayCanvas React.**
 
-Part of the [NammaSpace](../README.md) spatial computing ecosystem.
+Part of the [NammaSpace](../README.md) spatial computing ecosystem. The current default entry is a guided project intake preview; the legacy 3DGS viewer is available from its “Open demo viewer” link or with `?view=demo`. Follow the root [`TODO.md`](../../TODO.md) for implementation status.
+
+**Current limitation:** image selection and form values remain in browser memory. The frontend does not yet upload files, persist a project, or start a reconstruction job. Do not treat the preview as a production capture service.
+
+The demo viewer includes an **Editor Mode** panel for in-memory whole-scene position, rotation, and uniform-scale adjustments. Those changes are not saved; direct wall/opening/object editing requires the future metric wireframe and solid-model workspaces.
 
 ---
 

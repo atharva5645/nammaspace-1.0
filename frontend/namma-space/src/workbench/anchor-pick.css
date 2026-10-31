@@ -1,0 +1,13 @@
+.ns-anchor-mark-editor{margin:14px 0 19px;padding:15px;border:1px solid #e7e2dc;border-radius:9px;background:#fffdfa}
+.ns-anchor-mark-editor .ns-field-label{margin:0 0 11px}
+.ns-anchor-mark-actions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:11px}
+.ns-anchor-mark-actions button{min-height:36px;padding:0 11px;border:1px solid #ded8d0;border-radius:7px;background:#fff;color:#665b4f;font:600 12px Inter,sans-serif;cursor:pointer}
+.ns-anchor-mark-actions button.selected{border-color:#ae734a;background:#f6ece3;color:#8a552f}
+.ns-anchor-mark-actions button.clear{margin-left:auto;color:#83776c}
+.ns-anchor-photo{position:relative;display:block;width:100%;padding:0;border:1px solid #ded8d0;border-radius:7px;background:#f4f1ed;overflow:hidden;cursor:crosshair;line-height:0}
+.ns-anchor-photo img{display:block;width:100%;height:auto}
+.ns-anchor-point{position:absolute;display:grid;place-items:center;width:27px;height:27px;margin:-13.5px 0 0 -13.5px;border:2px solid white;border-radius:50%;color:white;font:700 13px Inter,sans-serif;box-shadow:0 2px 8px #0008;line-height:1;pointer-events:none}
+.ns-anchor-point.point-a{background:#16856d}
+.ns-anchor-point.point-b{background:#c45845}
+.ns-anchor-pick-state,.ns-anchor-no-photo{font-size:12px;line-height:1.5;color:#81776c;margin:9px 0 0}
+.ns-anchor-mark-editor .ns-section-subhead{margin-top:0}

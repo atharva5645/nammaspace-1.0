@@ -210,7 +210,8 @@ export const ViewerCanvas: React.FC<ViewerCanvasProps> = ({
         // Only trigger pointer lock if click was directly on the viewer/canvas
         if (
             (e.target as HTMLElement)?.closest('.ns-hud-header') ||
-            (e.target as HTMLElement)?.closest('.ns-info-card')
+            (e.target as HTMLElement)?.closest('.ns-info-card') ||
+            (e.target as HTMLElement)?.closest('.ns-editor-panel')
         ) {
             return;
         }
