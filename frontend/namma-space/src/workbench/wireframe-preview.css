@@ -1,1 +1,10 @@
 .ns-wireframe-preview{height:260px;position:relative;overflow:hidden;background:#f4f0eb;touch-action:none}.ns-wireframe-preview canvas{width:100%!important;height:100%!important;display:block;outline:none}.ns-preview-controls-hint{position:absolute;right:10px;bottom:9px;display:flex;align-items:center;gap:6px;border:1px solid #e9e0d5;border-radius:20px;padding:5px 8px;background:#fffdfad9;color:#766b5e;font-size:9px;pointer-events:none}.ns-preview-controls-hint i{font-style:normal;color:#ba8b67}@media(max-width:850px){.ns-wireframe-preview{height:300px}}
+
+.ns-preview-card-interactive {
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.ns-preview-card-interactive:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(158, 96, 56, 0.18);
+}

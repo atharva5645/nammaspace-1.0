@@ -15,7 +15,7 @@
 
 .ns-header-right .ns-text-button.ns-demo-button {
     position: relative;
-    padding: 7px 14px;
+    padding: 11px 24px; font-size: 15px; font-weight: 700;
     border-radius: 999px;
     background: #9e6038;
     color: #fff;
