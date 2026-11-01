@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![NammaSpace Banner](docs/assets/images/playroom-overview.jpg)
+![NammaSpace Banner](docs/assets/images/playroom-banner.jpg?v=2)
 
 ### **Interactive 3D Gaussian Splatting (3DGS) & Spatial Computing Ecosystem**
 *From real-world mobile capture to photorealistic, high-performance interactive web digital twins.*
