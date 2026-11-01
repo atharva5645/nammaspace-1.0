@@ -1,13 +1,13 @@
-/* "Open demo viewer" call to action in the intake header: pulsing pill + hint text. */
+/* "Open demo viewer" call to action: prominent styling */
 .ns-demo-cta {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
 }
 
 .ns-demo-hint {
-    font-size: 12px;
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 700;
     color: #9e6038;
     white-space: nowrap;
     animation: ns-demo-nudge 1.6s ease-in-out infinite;
@@ -15,18 +15,26 @@
 
 .ns-header-right .ns-text-button.ns-demo-button {
     position: relative;
-    padding: 11px 24px; font-size: 15px; font-weight: 700;
+    padding: 13px 28px;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 0.2px;
     border-radius: 999px;
-    background: #9e6038;
+    background: linear-gradient(135deg, #a6653b 0%, #874e2a 100%);
     color: #fff;
     white-space: nowrap;
-    animation: ns-demo-pulse 1.6s ease-out infinite;
-    transition: background 0.15s ease;
+    box-shadow: 0 4px 18px rgba(158, 96, 56, 0.4);
+    animation: ns-demo-pulse 1.8s ease-out infinite;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    cursor: pointer;
+    border: none;
 }
 
 .ns-header-right .ns-text-button.ns-demo-button:hover,
 .ns-header-right .ns-text-button.ns-demo-button:focus-visible {
-    background: #84502f;
+    background: linear-gradient(135deg, #874e2a 0%, #6d3d1f 100%);
+    box-shadow: 0 6px 24px rgba(158, 96, 56, 0.55);
+    transform: translateY(-1px) scale(1.03);
     animation-play-state: paused;
 }
 
@@ -35,16 +43,119 @@
     outline-offset: 3px;
 }
 
+/* Hero Section Demo Callout Banner */
+.ns-hero-demo-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 18px 0 24px;
+    padding: 14px 20px;
+    background: linear-gradient(135deg, #fff7f2 0%, #faede4 100%);
+    border: 1.5px solid #ecd5c5;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(158, 96, 56, 0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ns-hero-demo-bar:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 22px rgba(158, 96, 56, 0.14);
+}
+
+.ns-hero-demo-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.ns-hero-demo-bar-badge {
+    background: #9e6038;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    text-transform: uppercase;
+}
+
+.ns-hero-demo-bar-text {
+    font-size: 13.5px;
+    color: #4b3629;
+    font-weight: 600;
+}
+
+.ns-hero-demo-bar-text span {
+    color: #7d6556;
+    font-size: 12px;
+    font-weight: 400;
+    display: block;
+    margin-top: 2px;
+}
+
+.ns-hero-demo-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 20px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #fff;
+    background: #9e6038;
+    border-radius: 999px;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease, transform 0.15s ease;
+    box-shadow: 0 3px 10px rgba(158, 96, 56, 0.3);
+}
+
+.ns-hero-demo-btn:hover {
+    background: #84502f;
+    transform: scale(1.04);
+}
+
+/* Card Launch Button */
+.ns-preview-launch-overlay {
+    margin-top: 10px;
+    display: flex;
+    justify-content: center;
+}
+
+.ns-card-launch-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: #9e6038;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
+    box-shadow: 0 2px 8px rgba(158, 96, 56, 0.25);
+}
+
+.ns-card-launch-btn:hover {
+    background: #84502f;
+    transform: translateY(-1px);
+}
+
 @keyframes ns-demo-pulse {
     0% {
         box-shadow: 0 0 0 0 rgba(158, 96, 56, 0.55);
         transform: scale(1);
     }
     50% {
-        transform: scale(1.05);
+        transform: scale(1.04);
     }
     70% {
-        box-shadow: 0 0 0 12px rgba(158, 96, 56, 0);
+        box-shadow: 0 0 0 14px rgba(158, 96, 56, 0);
     }
     100% {
         box-shadow: 0 0 0 0 rgba(158, 96, 56, 0);
@@ -52,14 +163,13 @@
     }
 }
 
-/* the arrow in the hint nudges toward the button */
 @keyframes ns-demo-nudge {
     0%,
     100% {
         transform: translateX(0);
     }
     50% {
-        transform: translateX(4px);
+        transform: translateX(5px);
     }
 }
 
@@ -78,7 +188,18 @@
     }
 
     .ns-header-right .ns-text-button.ns-demo-button {
-        padding: 6px 12px;
+        padding: 8px 16px;
+        font-size: 13px;
+    }
+
+    .ns-hero-demo-bar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .ns-hero-demo-btn {
+        width: 100%;
+        justify-content: center;
     }
 }
 

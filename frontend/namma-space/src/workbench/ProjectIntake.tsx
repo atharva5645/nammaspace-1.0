@@ -283,6 +283,19 @@ export function ProjectIntake({ onOpenDemo }: { onOpenDemo: () => void }) {
                     <h1>Build a measured model<br />of your space.</h1>
                     <p className="ns-intro">Add room photos, follow the guided capture steps, and provide a few known measurements. We’ll use them to anchor the model to real-world scale.</p>
 
+                    <div className="ns-hero-demo-bar" onClick={onOpenDemo} role="button" tabIndex={0} style={{ cursor: 'pointer' }}>
+                        <div className="ns-hero-demo-bar-left">
+                            <span className="ns-hero-demo-bar-badge">Live Demo</span>
+                            <div className="ns-hero-demo-bar-text">
+                                Want to explore the 3D room viewer right now?
+                                <span>Walk through real photorealistic 3D scans with interactive FPS walking &amp; orbit controls.</span>
+                            </div>
+                        </div>
+                        <button type="button" className="ns-hero-demo-btn" onClick={(e) => { e.stopPropagation(); onOpenDemo(); }}>
+                            Open Demo Room ↗
+                        </button>
+                    </div>
+
                     <nav className="ns-stepper" aria-label="Project setup progress">
                         {steps.map((label, index) => <div key={label} className={`ns-step ${index === step ? 'active' : ''} ${index < step ? 'complete' : ''}`}><span>{index < step ? '✓' : `0${index + 1}`}</span>{label}</div>)}
                     </nav>
@@ -396,7 +409,13 @@ export function ProjectIntake({ onOpenDemo }: { onOpenDemo: () => void }) {
                 </section>
 
                 <aside className="ns-side-panel">
-                    <div className="ns-preview-card ns-preview-card-interactive" onClick={onOpenDemo} role="button" tabIndex={0} title="Click to open interactive 3D demo viewer" style={{ cursor: "pointer" }}><div className="ns-preview-top"><span>INTERACTIVE 3D PREVIEW</span><span className="ns-beta-pill">3 REVIEW STAGES</span></div><Suspense fallback={<div className="ns-preview-loading">Preparing interactive room…</div>}><WireframePreview3D /></Suspense><div className="ns-preview-caption"><strong>Explore a sample room wireframe</strong><span>Drag to orbit and scroll to zoom · dimensions are added from your measurements</span></div></div>
+                    <div className="ns-preview-card ns-preview-card-interactive" onClick={onOpenDemo} role="button" tabIndex={0} title="Click to open interactive 3D demo viewer" style={{ cursor: "pointer" }}><div className="ns-preview-top"><span>INTERACTIVE 3D PREVIEW</span><span className="ns-beta-pill">3 REVIEW STAGES</span></div><Suspense fallback={<div className="ns-preview-loading">Preparing interactive room…</div>}><WireframePreview3D /></Suspense><div className="ns-preview-caption"><strong>Explore a sample room wireframe</strong><span>Drag to orbit and scroll to zoom · dimensions are added from your measurements</span>
+                        <div className="ns-preview-launch-overlay">
+                            <button type="button" className="ns-card-launch-btn" onClick={(e) => { e.stopPropagation(); onOpenDemo(); }}>
+                                🚀 Launch 3D Demo Viewer ↗
+                            </button>
+                        </div>
+                    </div></div>
                     <div className="ns-stage-list"><div className="ns-aside-eyebrow">YOU REVIEW EVERY STAGE</div><div className={`ns-stage-row ${step >= 2 ? 'current' : 'current'}`}><span className="ns-stage-number">01</span><div><strong>Precision wireframe</strong><p>Dimensions, corners, walls, openings and confidence metrics</p></div><span className="ns-stage-lock">◉</span></div><div className="ns-stage-row"><span className="ns-stage-number">02</span><div><strong>Solid geometry</strong><p>Clean surfaces with simple glossy materials</p></div><span className="ns-stage-lock">◌</span></div><div className="ns-stage-row"><span className="ns-stage-number">03</span><div><strong>Color & objects</strong><p>Surface colors and editable object placeholders</p></div><span className="ns-stage-lock">◌</span></div></div>
                     <div className="ns-trust-note"><span>◈</span><p><strong>Human-approved at every step</strong><br />The next stage starts only when you approve the current one. You can return to edit the wireframe later.</p></div>
                 </aside>
