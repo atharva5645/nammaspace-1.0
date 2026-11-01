@@ -82,6 +82,12 @@ tools/downloads/
 *.mp4
 *.backup
 
+# Whitelist documentation images
+!docs/assets/images/*.jpg
+!docs/assets/images/*.png
+!docs/assets/images/*.webp
+
+
 # Intermediate experimental SOG assets
 frontend/namma-space/public/supermarket_*.sog
 !frontend/namma-space/public/supermarket_hq_leveled.sog
