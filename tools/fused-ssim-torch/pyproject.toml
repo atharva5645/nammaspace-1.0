@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fused-ssim"
+version = "0.0.0+torch"
+description = "Pure-PyTorch stand-in for the fused-ssim CUDA extension (no compiler needed)"
+requires-python = ">=3.9"
+dependencies = ["torch"]
+
+[tool.setuptools]
+packages = ["fused_ssim"]

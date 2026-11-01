@@ -888,3 +888,55 @@ body {
 
 
 
+
+/* ==================================================
+   UP / DOWN CONTROLS (every scene)
+   ================================================== */
+.ns-vertical-controls {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 6px;
+    border-radius: var(--ns-radius-md);
+    background: rgba(12, 13, 18, 0.45);
+    border: 1px solid var(--ns-panel-border);
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+}
+
+.ns-vertical-btn {
+    width: 40px;
+    height: 40px;
+}
+
+.ns-vertical-btn:active {
+    color: var(--ns-text-main);
+    background: rgba(59, 130, 246, 0.35);
+    border-color: var(--ns-accent);
+}
+
+.ns-vertical-btn:focus-visible {
+    outline: 2px solid var(--ns-accent);
+    outline-offset: 2px;
+}
+
+.ns-vertical-label {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--ns-text-muted);
+}
+
+@media (max-width: 640px) {
+    .ns-vertical-controls {
+        right: 12px;
+    }
+}

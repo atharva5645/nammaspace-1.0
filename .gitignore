@@ -54,6 +54,8 @@ checkpoints/
 
 # Datasets, Captures & Experiment Runs
 data/raw/
+data/scenes/
+data/datasets/
 data/processed/
 data/reconstructions/
 data/experiments/

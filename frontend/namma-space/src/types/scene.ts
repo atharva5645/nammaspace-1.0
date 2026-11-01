@@ -1,33 +1,33 @@
 export type Vec3Tuple = [number, number, number];
 
-export interface SceneTransform {
+export type SceneTransform = {
     position: Vec3Tuple;
     rotation: Vec3Tuple;
     scale: Vec3Tuple;
-}
+};
 
-export interface CameraConfig {
+export type CameraConfig = {
     position: Vec3Tuple;
     fov: number;
     clearColor?: string;
     rotation?: Vec3Tuple;
     lookAt?: Vec3Tuple;
-}
+};
 
-export interface SceneBounds {
+export type SceneBounds = {
     min: Vec3Tuple;
     max: Vec3Tuple;
-}
+};
 
-export interface Waypoint {
+export type Waypoint = {
     id: string;
     name: string;
     position: Vec3Tuple;
     rotation?: Vec3Tuple;
     description?: string;
-}
+};
 
-export interface NavigationConfig {
+export type NavigationConfig = {
     mode: 'first-person' | 'camera-rail';
     eyeHeight: number;
     movementSpeed: number;
@@ -35,19 +35,20 @@ export interface NavigationConfig {
     lookSensitivity: number;
     pitchRange: [number, number];
     boundaryMargin: number;
+    lookSmoothing?: number; // How fast the view follows the mouse (per second); higher = snappier
     railUrl?: string; // URL to camera rail JSON when mode === 'camera-rail'
-}
+};
 
-export interface SceneMetadata {
+export type SceneMetadata = {
     splatFormat?: string;
     gaussianCount?: number;
     coordinateConvention?: string;
     captureSource?: string;
     createdAt?: string;
     [key: string]: unknown;
-}
+};
 
-export interface SceneConfig {
+export type SceneConfig = {
     id: string;
     name: string;
     asset: string;
@@ -61,4 +62,4 @@ export interface SceneConfig {
     bounds: SceneBounds;
     waypoints: Waypoint[];
     metadata: SceneMetadata;
-}
+};

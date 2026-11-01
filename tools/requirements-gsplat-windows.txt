@@ -1,0 +1,30 @@
+# Training environment for pipeline/video_to_scene.py on Windows (Python 3.10).
+# Install order (see pipeline/CAPTURE_GUIDE.md):
+#   py -3.10 -m venv .venv
+#   .venv\Scripts\pip install torch==2.4.1 torchvision==0.19.1 --index-url https://download.pytorch.org/whl/cu124
+#   .venv\Scripts\pip install "gsplat==1.5.3+pt24cu124" --extra-index-url https://docs.gsplat.studio/whl/pt24cu124
+#   .venv\Scripts\pip install -r tools\requirements-gsplat-windows.txt
+#   .venv\Scripts\python tools\patch_pycolmap_windows.py     (pycolmap misreads .bin files on Windows)
+#
+# gsplat 1.5.3 publishes exactly one prebuilt Windows wheel: torch 2.4 + CUDA 12.4 + Python 3.10.
+# These are gsplat's examples/requirements.txt, minus the two CUDA extensions that need a compiler:
+#   fused-ssim     -> replaced by the pure-PyTorch package in tools/fused-ssim-torch
+#   fused-bilagrid -> not needed; --use_bilateral_grid uses the trainer's built-in lib_bilagrid
+
+git+https://github.com/rmbrualla/pycolmap@cc7ea4b7301720ac29287dbe450952511b32125e
+viser
+git+https://github.com/nerfstudio-project/nerfview@4538024fe0d15fd1a0e4d760f3695fc44ca72787
+imageio[ffmpeg]
+numpy<2.0.0
+scikit-learn
+tqdm
+torchmetrics[image]
+opencv-python
+tyro>=0.8.8
+Pillow
+tensorboard
+tensorly
+pyyaml
+matplotlib
+splines
+./tools/fused-ssim-torch

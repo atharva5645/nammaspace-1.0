@@ -32,7 +32,7 @@
   },
 
   "rendering": {
-    "lodEnabled": true,
+    "lodEnabled": false,
     "splatBudget": 1500000,
     "splatBudgetMode": "target",
     "initialDpr": 1.5,

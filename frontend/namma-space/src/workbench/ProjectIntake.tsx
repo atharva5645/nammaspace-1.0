@@ -5,6 +5,7 @@ import './anchor-pick.css';
 import './workspace-inspiration.css';
 import './intake-typography.css';
 import './lazy-loading.css';
+import './demo-cta.css';
 import { addPhotosAndRefreshPreflight, downloadSpatialArtifact, getSpatialArtifactUrl, getPreflightJob, getSpatialJob, submitIntake, submitSparseReconstruction, type AnchorPixelPick, type PreflightJob, type SpatialJob } from '../services/intakeApi';
 import { ProjectLibrary } from './ProjectLibrary';
 
@@ -273,7 +274,7 @@ export function ProjectIntake({ onOpenDemo }: { onOpenDemo: () => void }) {
         <main className="ns-workbench">
             <header className="ns-workbench-header">
                 <a className="ns-wordmark" href="/" aria-label="NammaSpace home"><span className="ns-mark">N</span> NammaSpace</a>
-                <div className="ns-header-right"><span className="ns-secure-label"><span /> Capture intake</span><button className="ns-text-button" onClick={() => setShowLibrary(true)}>Saved projects</button><button className="ns-text-button" onClick={onOpenDemo}>Open demo viewer ↗</button></div>
+                <div className="ns-header-right"><span className="ns-secure-label"><span /> Capture intake</span><button className="ns-text-button" onClick={() => setShowLibrary(true)}>Saved projects</button><div className="ns-demo-cta"><span className="ns-demo-hint" aria-hidden="true">Click here to explore a 3D room →</span><button className="ns-text-button ns-demo-button" onClick={onOpenDemo} aria-label="Open demo viewer"><span className="ns-demo-label-long">Open demo viewer ↗</span><span className="ns-demo-label-short">Demo ↗</span></button></div></div>
             </header>
 
             <div className="ns-workbench-layout">

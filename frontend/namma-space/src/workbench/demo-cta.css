@@ -1,0 +1,90 @@
+/* "Open demo viewer" call to action in the intake header: pulsing pill + hint text. */
+.ns-demo-cta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ns-demo-hint {
+    font-size: 12px;
+    font-weight: 600;
+    color: #9e6038;
+    white-space: nowrap;
+    animation: ns-demo-nudge 1.6s ease-in-out infinite;
+}
+
+.ns-header-right .ns-text-button.ns-demo-button {
+    position: relative;
+    padding: 7px 14px;
+    border-radius: 999px;
+    background: #9e6038;
+    color: #fff;
+    white-space: nowrap;
+    animation: ns-demo-pulse 1.6s ease-out infinite;
+    transition: background 0.15s ease;
+}
+
+.ns-header-right .ns-text-button.ns-demo-button:hover,
+.ns-header-right .ns-text-button.ns-demo-button:focus-visible {
+    background: #84502f;
+    animation-play-state: paused;
+}
+
+.ns-header-right .ns-text-button.ns-demo-button:focus-visible {
+    outline: 2px solid #84502f;
+    outline-offset: 3px;
+}
+
+@keyframes ns-demo-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(158, 96, 56, 0.55);
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    70% {
+        box-shadow: 0 0 0 12px rgba(158, 96, 56, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(158, 96, 56, 0);
+        transform: scale(1);
+    }
+}
+
+/* the arrow in the hint nudges toward the button */
+@keyframes ns-demo-nudge {
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+    50% {
+        transform: translateX(4px);
+    }
+}
+
+.ns-demo-label-short {
+    display: none;
+}
+
+@media (max-width: 640px) {
+    .ns-demo-hint,
+    .ns-demo-label-long {
+        display: none;
+    }
+
+    .ns-demo-label-short {
+        display: inline;
+    }
+
+    .ns-header-right .ns-text-button.ns-demo-button {
+        padding: 6px 12px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ns-demo-hint,
+    .ns-header-right .ns-text-button.ns-demo-button {
+        animation: none;
+    }
+}

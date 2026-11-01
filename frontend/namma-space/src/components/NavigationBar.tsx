@@ -160,8 +160,9 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({
                         value={currentSceneId}
                         aria-label="Select scene"
                     >
-                        <option value="supermarket-001">Supermarket Aisle</option>
+                        <option value="playroom">Playroom (Hybrid)</option>
                         <option value="room-001">Room-001 Hall</option>
+                        <option value="supermarket-001">Supermarket Aisle</option>
                     </select>
                 </div>
             </div>

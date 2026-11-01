@@ -1,36 +1,38 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { supermarketSceneConfig, defaultSceneConfig } from './config/sceneConfig';
+import { supermarketSceneConfig, defaultSceneConfig, playroomSceneConfig } from './config/sceneConfig';
 import { ViewerCanvas } from './components/ViewerCanvas';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ErrorScreen } from './components/ErrorScreen';
 import { NavigationBar } from './components/NavigationBar';
 import { RoomInfoCard } from './components/RoomInfoCard';
 import { EditorPanel } from './components/EditorPanel';
-import type { SceneTransform } from './types/scene';
+import { VerticalControls } from './components/VerticalControls';
+import type { SceneConfig, SceneTransform } from './types/scene';
+
+const SCENES: Record<string, SceneConfig> = {
+    'room-001': defaultSceneConfig,
+    'supermarket-001': supermarketSceneConfig,
+    playroom: playroomSceneConfig
+};
 
 export interface ExistingViewerProps {
     onBackToWorkbench?: () => void;
 }
 
 export const App: React.FC<ExistingViewerProps> = ({ onBackToWorkbench }) => {
-    // Read an explicit scene parameter; otherwise open the Hall 001 demo scene.
+    // Read an explicit scene parameter; otherwise open the hybrid Playroom demo scene.
     const [activeSceneId, setActiveSceneId] = useState<string>(() => {
         if (typeof window !== 'undefined') {
             const params = new URLSearchParams(window.location.search);
             const sceneParam = params.get('scene');
-            if (sceneParam === 'room-001' || sceneParam === 'supermarket-001') {
+            if (sceneParam && sceneParam in SCENES) {
                 return sceneParam;
             }
         }
-        return 'room-001';
+        return 'playroom';
     });
 
-    const scene = useMemo(() => {
-        if (activeSceneId === 'room-001') {
-            return defaultSceneConfig;
-        }
-        return supermarketSceneConfig;
-    }, [activeSceneId]);
+    const scene = useMemo(() => SCENES[activeSceneId] ?? defaultSceneConfig, [activeSceneId]);
     const [editorTransform, setEditorTransform] = useState<SceneTransform | null>(null);
     const [isEditorOpen, setIsEditorOpen] = useState(false);
     const displayedScene = useMemo(
@@ -166,6 +168,9 @@ export const App: React.FC<ExistingViewerProps> = ({ onBackToWorkbench }) => {
                 />
             )}
 
+            {/* Up/down buttons, available in every scene */}
+            {!isLoading && !error && <VerticalControls />}
+
             {/* Subtle "Click to explore" navigation hint */}
             {!isLoading && !error && !isPointerLocked && (
                 <div
@@ -176,7 +181,7 @@ export const App: React.FC<ExistingViewerProps> = ({ onBackToWorkbench }) => {
                     aria-label="Click to explore spatial scene"
                 >
                     <span className="ns-prompt-pill">Click to enter FPS look (or drag to look)</span>
-                    <span className="ns-prompt-keys">WASD to walk · Shift to sprint · Esc to exit</span>
+                    <span className="ns-prompt-keys">WASD to walk · Space/E up · Q/C down · Shift to sprint · Esc to exit</span>
                 </div>
             )}
 
